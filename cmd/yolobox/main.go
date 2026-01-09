@@ -224,6 +224,8 @@ func runCmd() error {
 		return printConfig(cfg)
 	case "reset":
 		return resetVolumes(args[1:])
+	case "uninstall":
+		return uninstallYolobox(args[1:])
 	case "version":
 		printVersion()
 		return nil
@@ -249,6 +251,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  yolobox upgrade             Upgrade binary and pull latest image")
 	fmt.Fprintln(os.Stderr, "  yolobox config              Print resolved configuration")
 	fmt.Fprintln(os.Stderr, "  yolobox reset --force       Remove named volumes (fresh start)")
+	fmt.Fprintln(os.Stderr, "  yolobox uninstall --force   Uninstall yolobox completely")
 	fmt.Fprintln(os.Stderr, "  yolobox version             Show version info")
 	fmt.Fprintln(os.Stderr, "  yolobox help                Show this help")
 	fmt.Fprintln(os.Stderr, "")
@@ -533,6 +536,71 @@ func resetVolumes(args []string) error {
 		return err
 	}
 	success("Fresh start! All volumes removed.")
+	return nil
+}
+
+func uninstallYolobox(args []string) error {
+	fs := flag.NewFlagSet("uninstall", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	force := fs.Bool("force", false, "confirm uninstall")
+	keepVolumes := fs.Bool("keep-volumes", false, "keep Docker volumes")
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			printUsage()
+			return errHelp
+		}
+		return err
+	}
+	if !*force {
+		fmt.Println("This will remove:")
+		fmt.Println("  - yolobox binary")
+		fmt.Println("  - ~/.config/yolobox/ (config and cache)")
+		if !*keepVolumes {
+			fmt.Println("  - Docker volumes (yolobox-home, yolobox-cache)")
+		}
+		fmt.Println("")
+		return fmt.Errorf("run with --force to confirm (use --keep-volumes to preserve Docker data)")
+	}
+
+	// Remove config directory
+	configDir, err := os.UserConfigDir()
+	if err == nil {
+		yoloboxConfig := filepath.Join(configDir, "yolobox")
+		if _, err := os.Stat(yoloboxConfig); err == nil {
+			info("Removing %s...", yoloboxConfig)
+			os.RemoveAll(yoloboxConfig)
+		}
+	}
+
+	// Remove Docker volumes unless --keep-volumes
+	if !*keepVolumes {
+		cfg, err := loadConfigFromEnv()
+		if err == nil {
+			runtime, err := resolveRuntime(cfg.Runtime)
+			if err == nil {
+				info("Removing Docker volumes...")
+				volumes := []string{"yolobox-home", "yolobox-cache", "yolobox-output"}
+				execCommand(runtime, append([]string{"volume", "rm", "-f"}, volumes...))
+			}
+		}
+	}
+
+	// Remove binary (do this last)
+	execPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %w", err)
+	}
+	execPath, err = filepath.EvalSymlinks(execPath)
+	if err != nil {
+		return fmt.Errorf("failed to resolve executable path: %w", err)
+	}
+
+	info("Removing %s...", execPath)
+	if err := os.Remove(execPath); err != nil {
+		return fmt.Errorf("failed to remove binary: %w (try: sudo rm %s)", err, execPath)
+	}
+
+	success("yolobox has been uninstalled. Goodbye!")
 	return nil
 }
 
