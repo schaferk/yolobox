@@ -92,3 +92,9 @@ All code lives in `cmd/yolobox/main.go` (~700 lines):
 - Runs as `yolo` user with full sudo access
 - Host home is NOT mounted unless `--unsafe-host` is passed
 - Host `~/.claude` is auto-mounted to share Claude Code settings/history
+
+## Hard-Won Learnings
+
+Document solutions here when something takes multiple attempts to figure out.
+
+- **SIGKILL in docker build but not docker run?** Use multi-stage build. Memory accumulates across layers; isolate heavy installers in a separate stage and COPY the result.
