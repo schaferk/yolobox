@@ -184,9 +184,6 @@ func TestBuildRunArgs(t *testing.T) {
 	if !strings.Contains(argsStr, "yolobox-cache:/var/cache") {
 		t.Error("expected yolobox-cache volume")
 	}
-	if !strings.Contains(argsStr, "yolobox-tools:/opt/tools") {
-		t.Error("expected yolobox-tools volume")
-	}
 }
 
 func TestBuildRunArgsNoNetwork(t *testing.T) {

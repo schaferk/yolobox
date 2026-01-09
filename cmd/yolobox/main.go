@@ -463,7 +463,7 @@ func resetVolumes(args []string) error {
 	}
 
 	warn("Removing yolobox volumes...")
-	volumes := []string{"yolobox-home", "yolobox-cache", "yolobox-tools"}
+	volumes := []string{"yolobox-home", "yolobox-cache"}
 	args = append([]string{"volume", "rm"}, volumes...)
 	if err := execCommand(runtime, args); err != nil {
 		return err
@@ -524,7 +524,6 @@ func buildRunArgs(cfg Config, projectDir string, command []string, interactive b
 	// Named volumes for persistence
 	args = append(args, "-v", "yolobox-home:/home/yolo")
 	args = append(args, "-v", "yolobox-cache:/var/cache")
-	args = append(args, "-v", "yolobox-tools:/opt/tools")
 
 	// Mount Claude config from host if it exists
 	home, err := os.UserHomeDir()
