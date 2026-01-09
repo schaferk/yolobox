@@ -98,3 +98,4 @@ All code lives in `cmd/yolobox/main.go` (~700 lines):
 Document solutions here when something takes multiple attempts to figure out.
 
 - **SIGKILL in docker build but not docker run?** Use multi-stage build. Memory accumulates across layers; isolate heavy installers in a separate stage and COPY the result.
+- **Claude Code config lives in TWO places**: `~/.claude/` (settings, history) AND `~/.claude.json` (onboarding state, preferences). Mount both.
