@@ -60,8 +60,8 @@ make image
 # 8. API key passthrough
 ANTHROPIC_API_KEY=test ./yolobox run printenv ANTHROPIC_API_KEY  # Should output: test
 
-# 9. Claude config sharing (if ~/.claude exists on host)
-./yolobox run ls /home/yolo/.claude      # Should show host's claude config
+# 9. Claude config sharing (opt-in with --claude-config)
+./yolobox run --claude-config ls /home/yolo/.claude   # Should show copied host claude config
 ```
 
 ## Architecture
@@ -93,7 +93,7 @@ All code lives in `cmd/yolobox/main.go` (~700 lines):
 - Sets `YOLOBOX=1` env var inside container
 - Runs as `yolo` user with full sudo access
 - Host home is NOT mounted (use `--mount ~:/host-home` if you really need it)
-- Host `~/.claude` is auto-mounted to share Claude Code settings/history
+- Host `~/.claude` can be copied to container with `--claude-config` flag (or `claude_config = true` in config)
 
 ## Hard-Won Learnings
 
@@ -101,3 +101,4 @@ Document solutions here when something takes multiple attempts to figure out.
 
 - **SIGKILL in docker build but not docker run?** Use multi-stage build. Memory accumulates across layers; isolate heavy installers in a separate stage and COPY the result.
 - **Claude Code config lives in TWO places**: `~/.claude/` (settings, history) AND `~/.claude.json` (onboarding state, preferences). Mount both.
+- **Claude Code needs writable config**: Can't mount `~/.claude` read-only; Claude writes to it at runtime. Solution: mount to staging area (`/host-claude/`) and copy on container start via entrypoint.

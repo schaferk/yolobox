@@ -82,6 +82,7 @@ yolobox help                # Show help
 | `--ssh-agent` | Forward SSH agent socket |
 | `--no-network` | Disable network access |
 | `--readonly-project` | Mount project read-only (outputs go to `/output`) |
+| `--claude-config` | Copy host `~/.claude` config into container |
 
 ## Auto-Forwarded Environment Variables
 
@@ -111,6 +112,8 @@ no_network = true
 ```
 
 Priority: CLI flags > project config > global config > defaults.
+
+> **Note:** Setting `claude_config = true` in your config will copy your host's Claude config on **every** container start, overwriting any changes made inside the container. Use the CLI flag `--claude-config` for one-time syncs.
 
 ## Runtime Support
 

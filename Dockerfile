@@ -96,6 +96,29 @@ RUN echo 'echo ""' >> ~/.bashrc \
     && echo 'echo -e "\\033[33m  Your home directory is safe. Go wild.\\033[0m"' >> ~/.bashrc \
     && echo 'echo ""' >> ~/.bashrc
 
+# Create entrypoint script that copies host Claude config to user home
+USER root
+RUN mkdir -p /host-claude && \
+    echo '#!/bin/bash' > /usr/local/bin/yolobox-entrypoint.sh && \
+    echo '# Copy Claude config from host staging area if present' >> /usr/local/bin/yolobox-entrypoint.sh && \
+    echo 'if [ -d /host-claude/.claude ] || [ -f /host-claude/.claude.json ]; then' >> /usr/local/bin/yolobox-entrypoint.sh && \
+    echo '    echo -e "\033[33m→ Copying host Claude config to container\033[0m" >&2' >> /usr/local/bin/yolobox-entrypoint.sh && \
+    echo 'fi' >> /usr/local/bin/yolobox-entrypoint.sh && \
+    echo 'if [ -d /host-claude/.claude ]; then' >> /usr/local/bin/yolobox-entrypoint.sh && \
+    echo '    sudo rm -rf /home/yolo/.claude' >> /usr/local/bin/yolobox-entrypoint.sh && \
+    echo '    sudo cp -a /host-claude/.claude /home/yolo/.claude' >> /usr/local/bin/yolobox-entrypoint.sh && \
+    echo '    sudo chown -R yolo:yolo /home/yolo/.claude' >> /usr/local/bin/yolobox-entrypoint.sh && \
+    echo 'fi' >> /usr/local/bin/yolobox-entrypoint.sh && \
+    echo 'if [ -f /host-claude/.claude.json ]; then' >> /usr/local/bin/yolobox-entrypoint.sh && \
+    echo '    sudo rm -f /home/yolo/.claude.json' >> /usr/local/bin/yolobox-entrypoint.sh && \
+    echo '    sudo cp -a /host-claude/.claude.json /home/yolo/.claude.json' >> /usr/local/bin/yolobox-entrypoint.sh && \
+    echo '    sudo chown yolo:yolo /home/yolo/.claude.json' >> /usr/local/bin/yolobox-entrypoint.sh && \
+    echo 'fi' >> /usr/local/bin/yolobox-entrypoint.sh && \
+    echo 'exec "$@"' >> /usr/local/bin/yolobox-entrypoint.sh && \
+    chmod +x /usr/local/bin/yolobox-entrypoint.sh
+USER yolo
+
 WORKDIR /workspace
 
+ENTRYPOINT ["/usr/local/bin/yolobox-entrypoint.sh"]
 CMD ["bash"]

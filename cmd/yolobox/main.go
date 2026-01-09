@@ -58,6 +58,7 @@ type Config struct {
 	SSHAgent        bool     `toml:"ssh_agent"`
 	ReadonlyProject bool     `toml:"readonly_project"`
 	NoNetwork       bool     `toml:"no_network"`
+	ClaudeConfig    bool     `toml:"claude_config"`
 }
 
 type stringSliceFlag []string
@@ -164,6 +165,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  --ssh-agent           Forward SSH agent socket")
 	fmt.Fprintln(os.Stderr, "  --no-network          Disable network access")
 	fmt.Fprintln(os.Stderr, "  --readonly-project    Mount project directory read-only")
+	fmt.Fprintln(os.Stderr, "  --claude-config       Copy host Claude config to container")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintf(os.Stderr, "%sCONFIG:%s\n", colorBold, colorReset)
 	fmt.Fprintln(os.Stderr, "  Global:  ~/.config/yolobox/config.toml")
@@ -202,6 +204,7 @@ func parseBaseFlags(name string, args []string) (Config, []string, error) {
 		sshAgent        bool
 		readonlyProject bool
 		noNetwork       bool
+		claudeConfig    bool
 		mounts          stringSliceFlag
 		envVars         stringSliceFlag
 	)
@@ -211,6 +214,7 @@ func parseBaseFlags(name string, args []string) (Config, []string, error) {
 	fs.BoolVar(&sshAgent, "ssh-agent", false, "mount SSH agent socket")
 	fs.BoolVar(&readonlyProject, "readonly-project", false, "mount project read-only")
 	fs.BoolVar(&noNetwork, "no-network", false, "disable network")
+	fs.BoolVar(&claudeConfig, "claude-config", false, "copy host Claude config to container")
 	fs.Var(&mounts, "mount", "extra mount src:dst")
 	fs.Var(&envVars, "env", "environment variable KEY=value")
 
@@ -236,6 +240,9 @@ func parseBaseFlags(name string, args []string) (Config, []string, error) {
 	}
 	if noNetwork {
 		cfg.NoNetwork = true
+	}
+	if claudeConfig {
+		cfg.ClaudeConfig = true
 	}
 	if len(mounts) > 0 {
 		cfg.Mounts = append(cfg.Mounts, mounts...)
@@ -322,6 +329,9 @@ func mergeConfig(dst *Config, src Config) {
 	if src.NoNetwork {
 		dst.NoNetwork = true
 	}
+	if src.ClaudeConfig {
+		dst.ClaudeConfig = true
+	}
 }
 
 func runShell(cfg Config) error {
@@ -342,6 +352,9 @@ func printActiveConfig(cfg Config) {
 	}
 	if cfg.ReadonlyProject {
 		active = append(active, "readonly-project")
+	}
+	if cfg.ClaudeConfig {
+		active = append(active, "claude-config")
 	}
 	if len(cfg.Mounts) > 0 {
 		active = append(active, fmt.Sprintf("%d extra mount(s)", len(cfg.Mounts)))
@@ -378,6 +391,7 @@ func printConfig(cfg Config) error {
 	fmt.Printf("%sssh_agent:%s %t\n", colorBold, colorReset, cfg.SSHAgent)
 	fmt.Printf("%sreadonly_project:%s %t\n", colorBold, colorReset, cfg.ReadonlyProject)
 	fmt.Printf("%sno_network:%s %t\n", colorBold, colorReset, cfg.NoNetwork)
+	fmt.Printf("%sclaude_config:%s %t\n", colorBold, colorReset, cfg.ClaudeConfig)
 	if len(cfg.Mounts) > 0 {
 		fmt.Printf("%smounts:%s\n", colorBold, colorReset)
 		for _, m := range cfg.Mounts {
@@ -480,18 +494,20 @@ func buildRunArgs(cfg Config, projectDir string, command []string, interactive b
 	args = append(args, "-v", "yolobox-home:/home/yolo")
 	args = append(args, "-v", "yolobox-cache:/var/cache")
 
-	// Mount Claude config from host if it exists
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-	claudeConfigDir := filepath.Join(home, ".claude")
-	if _, err := os.Stat(claudeConfigDir); err == nil {
-		args = append(args, "-v", claudeConfigDir+":/home/yolo/.claude:ro")
-	}
-	claudeConfigFile := filepath.Join(home, ".claude.json")
-	if _, err := os.Stat(claudeConfigFile); err == nil {
-		args = append(args, "-v", claudeConfigFile+":/home/yolo/.claude.json:ro")
+	// Mount Claude config from host to staging area (copied to /home/yolo by entrypoint)
+	if cfg.ClaudeConfig {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, err
+		}
+		claudeConfigDir := filepath.Join(home, ".claude")
+		if _, err := os.Stat(claudeConfigDir); err == nil {
+			args = append(args, "-v", claudeConfigDir+":/host-claude/.claude:ro")
+		}
+		claudeConfigFile := filepath.Join(home, ".claude.json")
+		if _, err := os.Stat(claudeConfigFile); err == nil {
+			args = append(args, "-v", claudeConfigFile+":/host-claude/.claude.json:ro")
+		}
 	}
 
 	// Extra mounts
