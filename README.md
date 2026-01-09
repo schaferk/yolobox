@@ -29,7 +29,7 @@ The AI can go absolutely wild inside the sandbox. Your actual home directory? Un
 
 ```bash
 # Install (requires Go)
-curl -fsSL https://raw.githubusercontent.com/finbarr/yolobox/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/finbarr/yolobox/master/install.sh | bash
 
 # Or clone and build
 git clone https://github.com/finbarr/yolobox.git
