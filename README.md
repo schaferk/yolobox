@@ -49,7 +49,7 @@ You're now in a sandboxed shell. Run `claude` and let it rip.
 ## What's in the Box?
 
 The base image comes batteries-included:
-- **AI CLIs**: Claude Code, Gemini CLI, OpenAI Codex, OpenCode (all pre-configured for full-auto mode!)
+- **AI CLIs**: Claude Code, Gemini CLI, OpenAI Codex, OpenCode, Copilot (all pre-configured for full-auto mode!)
 - **Node.js 22** + npm/yarn/pnpm
 - **Python 3** + pip + venv
 - **Build tools**: make, cmake, gcc
@@ -68,6 +68,7 @@ Inside yolobox, the AI CLIs are aliased to skip all permission prompts:
 | `codex` | `codex --dangerously-bypass-approvals-and-sandbox` |
 | `gemini` | `gemini --yolo` |
 | `opencode` | `opencode` (no yolo flag available yet) |
+| `copilot` | `copilot --yolo` |
 
 No confirmations, no guardrails—just pure unfiltered AI, the way nature intended.
 
