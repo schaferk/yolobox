@@ -26,6 +26,7 @@ func TestMergeConfig(t *testing.T) {
 		Image:     "new-image",
 		SSHAgent:  true,
 		NoNetwork: true,
+		Scratch:   true,
 	}
 
 	mergeConfig(&dst, src)
@@ -41,6 +42,9 @@ func TestMergeConfig(t *testing.T) {
 	}
 	if !dst.NoNetwork {
 		t.Error("expected NoNetwork to be true")
+	}
+	if !dst.Scratch {
+		t.Error("expected Scratch to be true")
 	}
 }
 
@@ -243,6 +247,76 @@ func TestBuildRunArgsNonInteractive(t *testing.T) {
 	argsStr := strings.Join(args, " ")
 	if strings.Contains(argsStr, "-it") {
 		t.Error("expected no -it flag for non-interactive mode")
+	}
+}
+
+func TestBuildRunArgsScratch(t *testing.T) {
+	cfg := Config{
+		Image:   "test-image",
+		Scratch: true,
+	}
+
+	args, err := buildRunArgs(cfg, "/test/project", []string{"bash"}, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	argsStr := strings.Join(args, " ")
+	if strings.Contains(argsStr, "yolobox-home:/home/yolo") {
+		t.Error("expected no yolobox-home volume with Scratch")
+	}
+	if strings.Contains(argsStr, "yolobox-cache:/var/cache") {
+		t.Error("expected no yolobox-cache volume with Scratch")
+	}
+	// Verify project mount is still present
+	if !strings.Contains(argsStr, "/test/project:/workspace") {
+		t.Error("expected project mount to still be present with Scratch")
+	}
+	// Verify no /output volume without ReadonlyProject
+	if strings.Contains(argsStr, "/output") {
+		t.Error("expected no /output volume without ReadonlyProject")
+	}
+}
+
+func TestBuildRunArgsScratchWithReadonlyProject(t *testing.T) {
+	cfg := Config{
+		Image:           "test-image",
+		Scratch:         true,
+		ReadonlyProject: true,
+	}
+
+	args, err := buildRunArgs(cfg, "/test/project", []string{"bash"}, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	argsStr := strings.Join(args, " ")
+	// Should have anonymous /output volume, not named yolobox-output
+	if strings.Contains(argsStr, "yolobox-output:/output") {
+		t.Error("expected anonymous /output volume with Scratch, got named volume")
+	}
+	if !strings.Contains(argsStr, "-v /output") {
+		t.Error("expected anonymous /output volume for readonly-project with Scratch")
+	}
+}
+
+func TestParseFlagsScratch(t *testing.T) {
+	// Change to a temp directory to avoid loading project config
+	origDir, _ := os.Getwd()
+	tmpDir := t.TempDir()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	cfg, rest, err := parseBaseFlags("run", []string{"--scratch", "echo", "hello"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !cfg.Scratch {
+		t.Error("expected Scratch to be true after parsing --scratch flag")
+	}
+	if len(rest) != 2 || rest[0] != "echo" || rest[1] != "hello" {
+		t.Errorf("expected remaining args [echo hello], got %v", rest)
 	}
 }
 

@@ -64,6 +64,7 @@ type Config struct {
 	ReadonlyProject bool     `toml:"readonly_project"`
 	NoNetwork       bool     `toml:"no_network"`
 	NoYolo          bool     `toml:"no_yolo"`
+	Scratch         bool     `toml:"scratch"`
 	ClaudeConfig    bool     `toml:"claude_config"`
 	GitConfig       bool     `toml:"git_config"`
 }
@@ -269,6 +270,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  --ssh-agent           Forward SSH agent socket")
 	fmt.Fprintln(os.Stderr, "  --no-network          Disable network access")
 	fmt.Fprintln(os.Stderr, "  --no-yolo             Disable AI CLIs YOLO mode")
+	fmt.Fprintln(os.Stderr, "  --scratch             Fresh environment, no persistent volumes")
 	fmt.Fprintln(os.Stderr, "  --readonly-project    Mount project directory read-only")
 	fmt.Fprintln(os.Stderr, "  --claude-config       Copy host Claude config to container")
 	fmt.Fprintln(os.Stderr, "  --git-config          Copy host git config to container")
@@ -311,6 +313,7 @@ func parseBaseFlags(name string, args []string) (Config, []string, error) {
 		readonlyProject bool
 		noNetwork       bool
 		noYolo          bool
+		scratch         bool
 		claudeConfig    bool
 		gitConfig       bool
 		mounts          stringSliceFlag
@@ -323,6 +326,7 @@ func parseBaseFlags(name string, args []string) (Config, []string, error) {
 	fs.BoolVar(&readonlyProject, "readonly-project", false, "mount project read-only")
 	fs.BoolVar(&noNetwork, "no-network", false, "disable network")
 	fs.BoolVar(&noYolo, "no-yolo", false, "disable AI CLIs YOLO mode")
+	fs.BoolVar(&scratch, "scratch", false, "fresh environment, no persistent volumes")
 	fs.BoolVar(&claudeConfig, "claude-config", false, "copy host Claude config to container")
 	fs.BoolVar(&gitConfig, "git-config", false, "copy host git config to container")
 	fs.Var(&mounts, "mount", "extra mount src:dst")
@@ -353,6 +357,9 @@ func parseBaseFlags(name string, args []string) (Config, []string, error) {
 	}
 	if noYolo {
 		cfg.NoYolo = true
+	}
+	if scratch {
+		cfg.Scratch = true
 	}
 	if claudeConfig {
 		cfg.ClaudeConfig = true
@@ -548,6 +555,9 @@ func mergeConfig(dst *Config, src Config) {
 	if src.NoYolo {
 		dst.NoYolo = true
 	}
+	if src.Scratch {
+		dst.Scratch = true
+	}
 	if src.ClaudeConfig {
 		dst.ClaudeConfig = true
 	}
@@ -574,6 +584,9 @@ func printActiveConfig(cfg Config) {
 	}
 	if cfg.NoYolo {
 		active = append(active, "no-yolo")
+	}
+	if cfg.Scratch {
+		active = append(active, "scratch")
 	}
 	if cfg.ReadonlyProject {
 		active = append(active, "readonly-project")
@@ -602,6 +615,14 @@ func runCommand(cfg Config, command []string, interactive bool) error {
 		return err
 	}
 
+	// Warn about scratch mode implications
+	if cfg.Scratch {
+		warn("Scratch mode: /home/yolo and /var/cache are ephemeral (data will not persist)")
+		if cfg.ReadonlyProject {
+			warn("Scratch mode with readonly-project: /output is ephemeral (copy files out before exiting)")
+		}
+	}
+
 	// Warn if Docker has low memory (can cause OOM with Claude)
 	checkDockerMemory(cfg.Runtime)
 
@@ -624,6 +645,7 @@ func printConfig(cfg Config) error {
 	fmt.Printf("%sreadonly_project:%s %t\n", colorBold, colorReset, cfg.ReadonlyProject)
 	fmt.Printf("%sno_network:%s %t\n", colorBold, colorReset, cfg.NoNetwork)
 	fmt.Printf("%sno_yolo:%s %t\n", colorBold, colorReset, cfg.NoYolo)
+	fmt.Printf("%sscratch:%s %t\n", colorBold, colorReset, cfg.Scratch)
 	fmt.Printf("%sclaude_config:%s %t\n", colorBold, colorReset, cfg.ClaudeConfig)
 	fmt.Printf("%sgit_config:%s %t\n", colorBold, colorReset, cfg.GitConfig)
 	if len(cfg.Mounts) > 0 {
@@ -793,13 +815,19 @@ func buildRunArgs(cfg Config, projectDir string, command []string, interactive b
 	if cfg.ReadonlyProject {
 		projectMount += ":ro"
 		// Create a writable output directory
-		args = append(args, "-v", "yolobox-output:/output")
+		if cfg.Scratch {
+			args = append(args, "-v", "/output") // anonymous volume, deleted with container
+		} else {
+			args = append(args, "-v", "yolobox-output:/output")
+		}
 	}
 	args = append(args, "-v", projectMount)
 
-	// Named volumes for persistence
-	args = append(args, "-v", "yolobox-home:/home/yolo")
-	args = append(args, "-v", "yolobox-cache:/var/cache")
+	// Named volumes for persistence (skip if --scratch)
+	if !cfg.Scratch {
+		args = append(args, "-v", "yolobox-home:/home/yolo")
+		args = append(args, "-v", "yolobox-cache:/var/cache")
+	}
 
 	// Mount Claude config from host to staging area (copied to /home/yolo by entrypoint)
 	if cfg.ClaudeConfig {
