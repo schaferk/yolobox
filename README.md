@@ -223,6 +223,30 @@ make image
 
 This builds `ghcr.io/finbarr/yolobox:latest` locally, overriding the remote image.
 
+## Customizing the Image
+
+Want to pre-install additional packages or tools? Create your own image:
+
+**1. Clone and modify:**
+```bash
+git clone https://github.com/finbarr/yolobox.git
+cd yolobox
+# Edit the Dockerfile to add your packages
+```
+
+**2. Build with a custom name:**
+```bash
+make image IMAGE=my-yolobox:latest
+```
+
+**3. Configure yolobox to use it:**
+```bash
+mkdir -p ~/.config/yolobox
+echo 'image = "my-yolobox:latest"' > ~/.config/yolobox/config.toml
+```
+
+Using a custom image name means `yolobox upgrade` won't overwrite your customization. When you update your Dockerfile, just rebuild with the same command.
+
 ## Why "yolobox"?
 
 Because you want to tell your AI agent "just do it" without consequences. YOLO, but in a box.
