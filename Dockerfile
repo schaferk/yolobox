@@ -1,5 +1,11 @@
 # Stage: Go source
-FROM golang:1.25.5 AS go-source
+FROM golang:1.25.6 AS go-source
+
+# Stage: Rust toolchain
+FROM rust:1.92-bookworm AS rust-source
+
+# Stage: Bun runtime
+FROM oven/bun:1.3 AS bun-source
 
 # Stage: Claude Code installer
 FROM ubuntu:24.04 AS claude-installer
@@ -37,6 +43,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     jq \
     ripgrep \
     fd-find \
+    bat \
+    eza \
     fzf \
     tree \
     htop \
@@ -66,6 +74,14 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Bun (from official image)
+COPY --from=bun-source /usr/local/bin/bun /usr/local/bin/bun
+RUN ln -s /usr/local/bin/bun /usr/local/bin/bunx
+
+# Create symlinks for bat/fd (Debian/Ubuntu rename these binaries)
+RUN ln -s /usr/bin/batcat /usr/local/bin/bat && \
+    ln -s /usr/bin/fdfind /usr/local/bin/fd
+
 # Install global npm packages and AI CLIs
 RUN npm install -g \
     typescript \
@@ -80,6 +96,13 @@ RUN npm install -g \
 # Install Go (from official image)
 COPY --from=go-source /usr/local/go /usr/local/go
 ENV PATH="/usr/local/go/bin:$PATH"
+
+# Install Rust (from official image)
+COPY --from=rust-source /usr/local/rustup /usr/local/rustup
+COPY --from=rust-source /usr/local/cargo /usr/local/cargo
+ENV RUSTUP_HOME=/usr/local/rustup
+ENV CARGO_HOME=/usr/local/cargo
+ENV PATH="/usr/local/cargo/bin:$PATH"
 
 # Install uv (fast Python package manager)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
