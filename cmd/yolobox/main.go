@@ -405,12 +405,12 @@ func loadConfig(projectDir string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	if err := mergeConfigFile(globalPath, &cfg, false); err != nil {
+	if err := mergeConfigFile(globalPath, &cfg); err != nil {
 		return Config{}, err
 	}
 
 	projectPath := filepath.Join(projectDir, ".yolobox.toml")
-	if err := mergeConfigFile(projectPath, &cfg, true); err != nil {
+	if err := mergeConfigFile(projectPath, &cfg); err != nil {
 		return Config{}, err
 	}
 
@@ -428,7 +428,7 @@ func globalConfigPath() (string, error) {
 	return filepath.Join(home, ".config", "yolobox", "config.toml"), nil
 }
 
-func mergeConfigFile(path string, cfg *Config, restricted bool) error {
+func mergeConfigFile(path string, cfg *Config) error {
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -441,117 +441,10 @@ func mergeConfigFile(path string, cfg *Config, restricted bool) error {
 		return err
 	}
 
-	// Validate shell for all config files
+	// Validate shell
 	if fileCfg.Shell != "" {
 		if err := validateShell(fileCfg.Shell); err != nil {
-			if restricted {
-				// Project config: warn and ignore (security boundary)
-				warn("Project config requests unsupported shell %q (allowed: bash, fish); using default. To set shell, use global config or --shell flag", fileCfg.Shell)
-				fileCfg.Shell = ""
-			} else {
-				// Global config: hard error (user's own config)
-				return fmt.Errorf("invalid shell in %s: %w", path, err)
-			}
-		}
-	}
-
-	if restricted {
-		// Runtime must never be set from project config (RCE risk)
-		if fileCfg.Runtime != "" {
-			warn("Ignoring 'runtime' in project config (security: use global config or CLI flags)")
-			fileCfg.Runtime = ""
-		}
-
-		var safeMounts []string
-		projectDir := filepath.Dir(path)
-		for _, m := range fileCfg.Mounts {
-			parts := strings.SplitN(m, ":", 2)
-			src := parts[0]
-
-			// String-based checks for obviously unsafe patterns
-			isUnsafe := filepath.IsAbs(src) ||
-				strings.HasPrefix(src, "~") ||
-				strings.HasPrefix(src, "$") ||
-				strings.Contains(src, "..")
-
-			if isUnsafe {
-				warn("Ignoring unsafe mount in project config: %s (use global config or CLI flags for host paths)", m)
-				continue
-			}
-
-			// Resolve the path relative to project directory
-			fullPath := filepath.Join(projectDir, src)
-
-			// Get absolute project directory for containment checks
-			absProject, err := filepath.Abs(projectDir)
-			if err != nil {
-				warn("Ignoring mount in project config: %s (cannot resolve project path)", m)
-				continue
-			}
-
-			// Check if this is a symlink (even if target doesn't exist)
-			fileInfo, err := os.Lstat(fullPath)
-			if err == nil && fileInfo.Mode()&os.ModeSymlink != 0 {
-				// It's a symlink - read where it points
-				linkTarget, err := os.Readlink(fullPath)
-				if err != nil {
-					warn("Ignoring unsafe mount in project config: %s (cannot read symlink)", m)
-					continue
-				}
-
-				// Resolve the link target to an absolute path
-				var resolvedTarget string
-				if filepath.IsAbs(linkTarget) {
-					resolvedTarget = filepath.Clean(linkTarget)
-				} else {
-					resolvedTarget = filepath.Clean(filepath.Join(filepath.Dir(fullPath), linkTarget))
-				}
-
-				// Check if symlink target escapes project directory
-				if !strings.HasPrefix(resolvedTarget, absProject+string(filepath.Separator)) && resolvedTarget != absProject {
-					warn("Ignoring unsafe mount in project config: %s (symlink escapes project directory)", m)
-					continue
-				}
-			} else if err == nil {
-				// Regular file/directory - resolve any symlinks in parent path components
-				resolvedPath, err := filepath.EvalSymlinks(fullPath)
-				if err == nil {
-					if !strings.HasPrefix(resolvedPath, absProject+string(filepath.Separator)) && resolvedPath != absProject {
-						warn("Ignoring unsafe mount in project config: %s (path escapes project directory)", m)
-						continue
-					}
-				}
-			}
-			// If path doesn't exist, allow it (Docker will error if invalid)
-
-			safeMounts = append(safeMounts, m)
-		}
-		fileCfg.Mounts = safeMounts
-
-		// Security: Project config cannot set runtime
-		if fileCfg.Runtime != "" {
-			warn("Ignoring restricted field in project config: runtime=%q (use global config or CLI flags)", fileCfg.Runtime)
-			fileCfg.Runtime = ""
-		}
-
-		// Security: Image cannot start with - (argument injection)
-		if strings.HasPrefix(fileCfg.Image, "-") {
-			warn("Ignoring invalid image in project config: %q", fileCfg.Image)
-			fileCfg.Image = ""
-		}
-
-		// Security: Project config cannot enable sensitive mounts
-		if fileCfg.SSHAgent {
-			warn("Ignoring restricted field in project config: ssh_agent=true (use global config or CLI flags)")
-			fileCfg.SSHAgent = false
-		}
-		if fileCfg.ClaudeConfig {
-			warn("Ignoring restricted field in project config: claude_config=true (use global config or CLI flags)")
-			fileCfg.ClaudeConfig = false
-		}
-		if fileCfg.GitConfig {
-			warn("Ignoring restricted field in project config: git_config=true (use global config or CLI flags)")
-			fileCfg.GitConfig = false
+			return fmt.Errorf("invalid shell in %s: %w", path, err)
 		}
 	}
 

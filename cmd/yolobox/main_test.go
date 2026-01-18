@@ -430,8 +430,8 @@ func TestParseBaseFlagsInvalidShell(t *testing.T) {
 	}
 }
 
-func TestMergeConfigFileGlobalShellValidation(t *testing.T) {
-	// Test that invalid shell in global config returns hard error
+func TestMergeConfigFileInvalidShell(t *testing.T) {
+	// Test that invalid shell in config returns error
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.toml")
 
@@ -441,18 +441,18 @@ func TestMergeConfigFileGlobalShellValidation(t *testing.T) {
 	}
 
 	cfg := defaultConfig()
-	err := mergeConfigFile(configPath, &cfg, false) // restricted=false = global config
+	err := mergeConfigFile(configPath, &cfg)
 
 	if err == nil {
-		t.Error("expected error for invalid shell in global config")
+		t.Error("expected error for invalid shell in config")
 	}
 	if !strings.Contains(err.Error(), "invalid shell") {
 		t.Errorf("expected 'invalid shell' error, got %v", err)
 	}
 }
 
-func TestMergeConfigFileGlobalValidShell(t *testing.T) {
-	// Test that valid shell in global config is accepted
+func TestMergeConfigFileValidShell(t *testing.T) {
+	// Test that valid shell in config is accepted
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.toml")
 
@@ -461,49 +461,7 @@ func TestMergeConfigFileGlobalValidShell(t *testing.T) {
 	}
 
 	cfg := defaultConfig()
-	err := mergeConfigFile(configPath, &cfg, false) // restricted=false = global config
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if cfg.Shell != "fish" {
-		t.Errorf("expected shell 'fish', got %q", cfg.Shell)
-	}
-}
-
-func TestMergeConfigFileProjectShellValidation(t *testing.T) {
-	// Test that invalid shell in project config is ignored (not a hard error)
-	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, ".yolobox.toml")
-
-	// Write invalid shell to project config
-	if err := os.WriteFile(configPath, []byte(`shell = "zsh"`), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	cfg := defaultConfig()
-	err := mergeConfigFile(configPath, &cfg, true) // restricted=true = project config
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	// Invalid shell should be ignored (cfg.Shell should remain empty/default)
-	if cfg.Shell != "" {
-		t.Errorf("expected invalid shell to be ignored, got %q", cfg.Shell)
-	}
-}
-
-func TestMergeConfigFileProjectValidShell(t *testing.T) {
-	// Test that valid shell in project config is accepted
-	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, ".yolobox.toml")
-
-	if err := os.WriteFile(configPath, []byte(`shell = "fish"`), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	cfg := defaultConfig()
-	err := mergeConfigFile(configPath, &cfg, true) // restricted=true = project config
+	err := mergeConfigFile(configPath, &cfg)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
