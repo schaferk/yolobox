@@ -23,7 +23,7 @@ image:
 		docker buildx build -t $(IMAGE) . || \
 		docker build -t $(IMAGE) .
 
-SMOKE_TOOLS := node bun python3 rustc cargo uv gh fish fd bat rg eza
+SMOKE_TOOLS := node bun python3 uv gh fish fd bat rg eza
 
 smoke-test: build
 	@echo "Running smoke tests..."

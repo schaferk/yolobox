@@ -64,8 +64,6 @@ make image
 ./yolobox run bun --version             # Bun
 ./yolobox run python3 --version         # Python
 ./yolobox run go version                # Go
-./yolobox run rustc --version           # Rust
-./yolobox run cargo --version           # Cargo (Rust package manager)
 ./yolobox run uv --version              # uv (Python package manager)
 ./yolobox run claude --version          # Claude Code
 ./yolobox run gemini --version          # Gemini CLI
