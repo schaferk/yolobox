@@ -1,5 +1,8 @@
 # Stage: Go source
-FROM golang:1.25.5 AS go-source
+FROM golang:1.25.6 AS go-source
+
+# Stage: Bun runtime
+FROM oven/bun:1.3 AS bun-source
 
 # Stage: Claude Code installer
 FROM ubuntu:24.04 AS claude-installer
@@ -37,6 +40,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     jq \
     ripgrep \
     fd-find \
+    bat \
+    eza \
     fzf \
     tree \
     htop \
@@ -65,6 +70,14 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     && apt-get update \
     && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Bun (from official image)
+COPY --from=bun-source /usr/local/bin/bun /usr/local/bin/bun
+RUN ln -s /usr/local/bin/bun /usr/local/bin/bunx
+
+# Create symlinks for bat/fd (Debian/Ubuntu rename these binaries)
+RUN ln -s /usr/bin/batcat /usr/local/bin/bat && \
+    ln -s /usr/bin/fdfind /usr/local/bin/fd
 
 # Install global npm packages and AI CLIs
 RUN npm install -g \

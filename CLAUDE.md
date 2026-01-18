@@ -9,6 +9,7 @@ make build          # Build the yolobox binary
 make test           # Run unit tests
 make lint           # Run go vet (and golangci-lint if installed)
 make image          # Build the Docker base image
+make smoke-test     # Run smoke tests on container tools
 make install        # Build and install to ~/.local/bin
 make clean          # Remove built binary
 ```
@@ -60,6 +61,7 @@ make image
 
 # 6. Pre-installed tools
 ./yolobox run node --version            # Node.js
+./yolobox run bun --version             # Bun
 ./yolobox run python3 --version         # Python
 ./yolobox run go version                # Go
 ./yolobox run uv --version              # uv (Python package manager)
@@ -70,6 +72,10 @@ make image
 ./yolobox run copilot --version         # GitHub Copilot CLI
 ./yolobox run gh --version              # GitHub CLI
 ./yolobox run fish --version            # Fish shell
+./yolobox run fd --version              # fd (find replacement)
+./yolobox run rg --version              # rg (ripgrep, grep replacement)
+./yolobox run bat --version             # bat (cat with syntax highlighting)
+./yolobox run eza --version             # eza (modern ls replacement)
 
 # 7. Flag tests (flags go AFTER subcommand)
 ./yolobox run --env FOO=bar bash -c 'echo $FOO'           # Should output: bar
