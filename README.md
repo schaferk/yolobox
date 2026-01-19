@@ -57,9 +57,9 @@ yolobox codex     # Or Codex, or any other AI tool
 
 That's it. You launch the AI and let it work. You're not meant to manually enter the box and set things up—the AI does that itself.
 
-**Why?** The AI agent has full sudo access inside the container. If it needs Rust, it runs `curl -fsSL https://sh.rustup.rs | sh`. If it needs a specific Python package, it installs it. Named volumes persist these installations across sessions, so the AI only sets up once.
+**Why?** The AI agent has full sudo access inside the container. If it needs a compiler, database, or framework you don't have—it just installs it. Named volumes persist these installations across sessions, so setup happens once.
 
-This is intentional. Each AI agent can make the box exactly what it needs for the current project. The base image stays lean (Node, Python, Bun, common tools), and the AI handles the rest. You just point it at your project and let it cook.
+The base image includes broadly useful tools (Node, Python, Go, Bun, common CLIs), and the AI handles the rest. You point it at your project and let it cook.
 
 ## What's in the Box?
 
