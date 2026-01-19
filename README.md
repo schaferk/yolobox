@@ -28,10 +28,13 @@ The AI can go absolutely wild inside the sandbox. Your actual home directory? Un
 ## Quick Start
 
 ```bash
-# Install (requires Go)
+# macOS (Homebrew)
+brew install finbarr/tap/yolobox
+
+# Linux/macOS (curl installer)
 curl -fsSL https://raw.githubusercontent.com/finbarr/yolobox/master/install.sh | bash
 
-# Or clone and build
+# Or build from source (requires Go)
 git clone https://github.com/finbarr/yolobox.git
 cd yolobox
 make install
@@ -302,10 +305,11 @@ git tag v0.1.2
 git push origin master --tags
 ```
 
-That's it. GitHub Actions will automatically:
+That's it. GitHub Actions uses [GoReleaser](https://goreleaser.com) to automatically:
 1. Build binaries for linux/darwin × amd64/arm64
 2. Create a GitHub release with binaries and checksums
-3. Build and push Docker image to `ghcr.io/finbarr/yolobox`
+3. Update the Homebrew formula in [finbarr/homebrew-tap](https://github.com/finbarr/homebrew-tap)
+4. Build and push Docker image to `ghcr.io/finbarr/yolobox`
 
 **Version policy:**
 - Patch bump (`0.1.x`): Bug fixes, security fixes
