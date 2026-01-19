@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/term"
 )
 
@@ -68,6 +70,9 @@ type Config struct {
 	Scratch         bool     `toml:"scratch"`
 	ClaudeConfig    bool     `toml:"claude_config"`
 	GitConfig       bool     `toml:"git_config"`
+
+	// Runtime-only fields (not persisted to config file)
+	Setup bool `toml:"-"` // Run interactive setup before starting
 }
 
 type stringSliceFlag []string
@@ -224,6 +229,9 @@ func runCmd() error {
 			return fmt.Errorf("run requires a command")
 		}
 		return runCommand(cfg, rest, false)
+	case "setup":
+		_, err := runSetup()
+		return err
 	case "upgrade":
 		return upgradeYolobox()
 	case "config":
@@ -261,6 +269,7 @@ func printUsage() {
 	fmt.Fprintf(os.Stderr, "%sUSAGE:%s\n", colorBold, colorReset)
 	fmt.Fprintln(os.Stderr, "  yolobox                     Start interactive shell in sandbox")
 	fmt.Fprintln(os.Stderr, "  yolobox run <cmd...>        Run a command in sandbox")
+	fmt.Fprintln(os.Stderr, "  yolobox setup               Configure yolobox settings")
 	fmt.Fprintln(os.Stderr, "  yolobox upgrade             Upgrade binary and pull latest image")
 	fmt.Fprintln(os.Stderr, "  yolobox config              Print resolved configuration")
 	fmt.Fprintln(os.Stderr, "  yolobox reset --force       Remove named volumes (fresh start)")
@@ -273,6 +282,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  --image <name>        Base image to use")
 	fmt.Fprintln(os.Stderr, "  --shell <name>        Shell for interactive sessions (bash, fish, zsh)")
 	fmt.Fprintln(os.Stderr, "                        Auto-detects from $SHELL if not specified")
+	fmt.Fprintln(os.Stderr, "  --setup               Run interactive setup before starting")
 	fmt.Fprintln(os.Stderr, "  --mount <src:dst>     Extra mount (repeatable)")
 	fmt.Fprintln(os.Stderr, "  --env <KEY=val>       Set environment variable (repeatable)")
 	fmt.Fprintln(os.Stderr, "  --ssh-agent           Forward SSH agent socket")
@@ -324,6 +334,7 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 		scratch         bool
 		claudeConfig    bool
 		gitConfig       bool
+		setup           bool
 		mounts          stringSliceFlag
 		envVars         stringSliceFlag
 	)
@@ -338,6 +349,7 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 	fs.BoolVar(&scratch, "scratch", false, "fresh environment, no persistent volumes")
 	fs.BoolVar(&claudeConfig, "claude-config", false, "copy host Claude config to container")
 	fs.BoolVar(&gitConfig, "git-config", false, "copy host git config to container")
+	fs.BoolVar(&setup, "setup", false, "run interactive setup before starting")
 	fs.Var(&mounts, "mount", "extra mount src:dst")
 	fs.Var(&envVars, "env", "environment variable KEY=value")
 
@@ -381,6 +393,9 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 	}
 	if gitConfig {
 		cfg.GitConfig = true
+	}
+	if setup {
+		cfg.Setup = true
 	}
 	if len(mounts) > 0 {
 		cfg.Mounts = append(cfg.Mounts, mounts...)
@@ -492,7 +507,38 @@ func mergeConfig(dst *Config, src Config) {
 }
 
 func runShell(cfg Config) error {
-	printActiveConfig(cfg)
+	// Run setup if explicitly requested via --setup flag
+	if cfg.Setup {
+		newCfg, err := runSetup()
+		if err != nil {
+			// If setup was cancelled, continue with defaults
+			if err.Error() == "setup cancelled" {
+				info("Using default settings")
+			} else {
+				return err
+			}
+		} else {
+			// Merge setup results into config (preserving any CLI overrides)
+			if cfg.Shell == "" {
+				cfg.Shell = newCfg.Shell
+			}
+			if !cfg.GitConfig {
+				cfg.GitConfig = newCfg.GitConfig
+			}
+			if !cfg.SSHAgent {
+				cfg.SSHAgent = newCfg.SSHAgent
+			}
+			if !cfg.NoNetwork {
+				cfg.NoNetwork = newCfg.NoNetwork
+			}
+			if !cfg.NoYolo {
+				cfg.NoYolo = newCfg.NoYolo
+			}
+		}
+	}
+
+	// Print logo before entering container
+	fmt.Fprint(os.Stderr, colorCyan+logo+colorReset)
 
 	res := resolveShell(cfg, os.Getenv("SHELL"))
 
@@ -508,48 +554,6 @@ func runShell(cfg Config) error {
 		return fmt.Errorf("failed to start %s shell (verify with: yolobox run %s --version): %w", res.shell, res.shell, err)
 	}
 	return nil
-}
-
-func printActiveConfig(cfg Config) {
-	fmt.Fprint(os.Stderr, colorCyan+logo+colorReset)
-
-	// Show active non-default settings
-	var active []string
-	if cfg.SSHAgent {
-		active = append(active, "ssh-agent")
-	}
-	if cfg.NoNetwork {
-		active = append(active, "no-network")
-	}
-	if cfg.NoYolo {
-		active = append(active, "no-yolo")
-	}
-	if cfg.Scratch {
-		active = append(active, "scratch")
-	}
-	if cfg.ReadonlyProject {
-		active = append(active, "readonly-project")
-	}
-	if cfg.ClaudeConfig {
-		active = append(active, "claude-config")
-	}
-	if cfg.GitConfig {
-		active = append(active, "git-config")
-	}
-	// Show shell only if explicitly configured (auto-detected shells are shown via info message)
-	if cfg.Shell != "" && cfg.Shell != "bash" {
-		active = append(active, fmt.Sprintf("shell=%s", cfg.Shell))
-	}
-	if len(cfg.Mounts) > 0 {
-		active = append(active, fmt.Sprintf("%d extra mount(s)", len(cfg.Mounts)))
-	}
-	if len(cfg.Env) > 0 {
-		active = append(active, fmt.Sprintf("%d env var(s)", len(cfg.Env)))
-	}
-
-	if len(active) > 0 {
-		info("Active: %s", strings.Join(active, ", "))
-	}
 }
 
 func runCommand(cfg Config, command []string, interactive bool) error {
@@ -605,6 +609,202 @@ func printConfig(cfg Config) error {
 		}
 	}
 	return nil
+}
+
+// globalConfigExists checks if the global config file exists
+func globalConfigExists() bool {
+	path, err := globalConfigPath()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(path)
+	return err == nil
+}
+
+// saveGlobalConfig writes config to the global config file
+func saveGlobalConfig(cfg Config) error {
+	path, err := globalConfigPath()
+	if err != nil {
+		return err
+	}
+
+	// Create config directory if needed
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	// Build TOML content (only non-default values)
+	var lines []string
+	if cfg.Shell != "" {
+		lines = append(lines, fmt.Sprintf("shell = %q", cfg.Shell))
+	}
+	if cfg.GitConfig {
+		lines = append(lines, "git_config = true")
+	}
+	if cfg.SSHAgent {
+		lines = append(lines, "ssh_agent = true")
+	}
+	if cfg.NoNetwork {
+		lines = append(lines, "no_network = true")
+	}
+	if cfg.NoYolo {
+		lines = append(lines, "no_yolo = true")
+	}
+
+	content := strings.Join(lines, "\n")
+	if content != "" {
+		content += "\n"
+	}
+
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return fmt.Errorf("failed to write config: %w", err)
+	}
+
+	return nil
+}
+
+// yoloboxTheme returns a custom huh theme matching the yolobox brand
+func yoloboxTheme() *huh.Theme {
+	t := huh.ThemeBase()
+
+	purple := lipgloss.Color("35")  // magenta/purple
+	cyan := lipgloss.Color("36")    // cyan
+	yellow := lipgloss.Color("33")  // yellow
+	white := lipgloss.Color("15")   // bright white
+
+	// Title styling - purple and bold
+	t.Focused.Title = t.Focused.Title.Foreground(purple).Bold(true)
+	t.Focused.Description = t.Focused.Description.Foreground(white)
+
+	// Selection styling
+	t.Focused.SelectSelector = t.Focused.SelectSelector.Foreground(yellow)
+	t.Focused.SelectedOption = t.Focused.SelectedOption.Foreground(cyan)
+	t.Focused.UnselectedOption = t.Focused.UnselectedOption.Foreground(white)
+
+	// Multi-select styling
+	t.Focused.MultiSelectSelector = t.Focused.MultiSelectSelector.Foreground(yellow)
+	t.Focused.SelectedPrefix = lipgloss.NewStyle().Foreground(cyan).SetString("[x] ")
+	t.Focused.UnselectedPrefix = lipgloss.NewStyle().Foreground(white).SetString("[ ] ")
+
+	return t
+}
+
+// runSetup runs the interactive setup wizard
+func runSetup() (Config, error) {
+	cfg := Config{}
+
+	// Load existing config as defaults
+	if globalConfigExists() {
+		projectDir, _ := os.Getwd()
+		existing, err := loadConfig(projectDir)
+		if err == nil {
+			cfg = existing
+		}
+	}
+
+	// Determine default shell from $SHELL if not set
+	if cfg.Shell == "" {
+		if shellEnv := os.Getenv("SHELL"); shellEnv != "" {
+			name := filepath.Base(shellEnv)
+			if validShells[name] {
+				cfg.Shell = name
+			}
+		}
+		if cfg.Shell == "" {
+			cfg.Shell = "bash"
+		}
+	}
+
+	// Form fields
+	var shell string
+	var selectedOptions []string
+
+	// Initialize from current config
+	shell = cfg.Shell
+	if cfg.GitConfig {
+		selectedOptions = append(selectedOptions, "git_config")
+	}
+	if cfg.SSHAgent {
+		selectedOptions = append(selectedOptions, "ssh_agent")
+	}
+	if cfg.NoNetwork {
+		selectedOptions = append(selectedOptions, "no_network")
+	}
+	if cfg.NoYolo {
+		selectedOptions = append(selectedOptions, "no_yolo")
+	}
+
+	// Print header with box
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("35")). // purple
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("35")).
+		Padding(0, 2)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, headerStyle.Render("yolobox setup"))
+	fmt.Fprintln(os.Stderr)
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Pick your shell").
+				Options(
+					huh.NewOption("bash", "bash"),
+					huh.NewOption("fish", "fish"),
+					huh.NewOption("zsh", "zsh"),
+				).
+				Value(&shell),
+
+			huh.NewMultiSelect[string]().
+				Title("What do you want inside the box?").
+				Options(
+					huh.NewOption("Git identity (copy ~/.gitconfig)", "git_config"),
+					huh.NewOption("SSH agent (for git over SSH)", "ssh_agent"),
+					huh.NewOption("No network (disable internet access)", "no_network"),
+					huh.NewOption("No YOLO (disable auto-confirm in AI CLIs)", "no_yolo"),
+				).
+				Value(&selectedOptions),
+		),
+	).WithTheme(yoloboxTheme())
+
+	err := form.Run()
+	if err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			return Config{}, fmt.Errorf("setup cancelled")
+		}
+		return Config{}, err
+	}
+
+	// Build config from form values
+	cfg.Shell = shell
+	cfg.GitConfig = contains(selectedOptions, "git_config")
+	cfg.SSHAgent = contains(selectedOptions, "ssh_agent")
+	cfg.NoNetwork = contains(selectedOptions, "no_network")
+	cfg.NoYolo = contains(selectedOptions, "no_yolo")
+
+	// Save to global config
+	if err := saveGlobalConfig(cfg); err != nil {
+		return cfg, err
+	}
+
+	path, _ := globalConfigPath()
+	success("Locked in! Config saved to %s", path)
+	fmt.Fprintf(os.Stderr, "  %sRun %syolobox setup%s%s anytime to change these settings.%s\n\n", colorCyan, colorBold, colorReset, colorCyan, colorReset)
+
+	return cfg, nil
+}
+
+// contains checks if a string slice contains a value
+func contains(slice []string, val string) bool {
+	for _, s := range slice {
+		if s == val {
+			return true
+		}
+	}
+	return false
 }
 
 func resetVolumes(args []string) error {

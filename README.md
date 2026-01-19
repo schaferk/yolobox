@@ -78,6 +78,7 @@ No confirmations, no guardrails—just pure unfiltered AI, the way nature intend
 yolobox                     # Drop into interactive shell
 yolobox run <cmd...>        # Run a single command
 yolobox run claude          # Run Claude Code in sandbox
+yolobox setup               # Configure yolobox settings
 yolobox upgrade             # Update binary and pull latest image
 yolobox config              # Show resolved configuration
 yolobox reset --force       # Delete volumes (fresh start)
@@ -93,11 +94,13 @@ yolobox help                # Show help
 | `--image <name>` | Custom base image |
 | `--mount <src:dst>` | Extra mount (repeatable) |
 | `--env <KEY=val>` | Set environment variable (repeatable) |
+| `--setup` | Run interactive setup before starting |
 | `--ssh-agent` | Forward SSH agent socket |
 | `--no-network` | Disable network access |
 | `--no-yolo` | Disable auto-confirmations (mindful mode) |
 | `--readonly-project` | Mount project read-only (outputs go to `/output`) |
 | `--claude-config` | Copy host `~/.claude` config into container |
+| `--git-config` | Copy host `~/.gitconfig` into container |
 
 ## Auto-Forwarded Environment Variables
 
@@ -110,15 +113,19 @@ These are automatically passed into the container if set:
 
 ## Configuration
 
-Create `~/.config/yolobox/config.toml` for global defaults:
+Run `yolobox setup` to configure your preferences with an interactive wizard.
+
+Settings are saved to `~/.config/yolobox/config.toml`:
 
 ```toml
-runtime = "docker"
-image = "ghcr.io/finbarr/yolobox:latest"
+shell = "fish"
+git_config = true
 ssh_agent = true
+no_network = true
+no_yolo = true
 ```
 
-Or `.yolobox.toml` in your project for project-specific settings:
+You can also create `.yolobox.toml` in your project for project-specific settings:
 
 ```toml
 mounts = ["../shared-libs:/libs:ro"]
@@ -128,7 +135,7 @@ no_network = true
 
 Priority: CLI flags > project config > global config > defaults.
 
-> **Note:** Setting `claude_config = true` in your config will copy your host's Claude config on **every** container start, overwriting any changes made inside the container. Use the CLI flag `--claude-config` for one-time syncs.
+> **Note:** Setting `claude_config = true` in your config will copy your host Claude config on **every** container start, overwriting any changes made inside the container (including auth and history). Prefer using `--claude-config` for one-time syncs.
 
 ## Runtime Support
 
