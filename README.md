@@ -25,6 +25,21 @@ AI coding agents are incredibly powerful when you let them run commands without 
 
 The AI can go absolutely wild inside the sandbox. Your actual home directory? Untouchable.
 
+## Philosophy: It's the AI's Box, Not Yours
+
+yolobox is designed for AI agents, not humans. The typical workflow is:
+
+```bash
+yolobox claude    # Launch Claude Code in the sandbox
+yolobox codex     # Or Codex, or any other AI tool
+```
+
+That's it. You launch the AI and let it work. You're not meant to manually enter the box and set things up—the AI does that itself.
+
+**Why?** The AI agent has full sudo access inside the container. If it needs Rust, it runs `curl -fsSL https://sh.rustup.rs | sh`. If it needs a specific Python package, it installs it. Named volumes persist these installations across sessions, so the AI only sets up once.
+
+This is intentional. Each AI agent can make the box exactly what it needs for the current project. The base image stays lean (Node, Python, Bun, common tools), and the AI handles the rest. You just point it at your project and let it cook.
+
 ## Quick Start
 
 ```bash
@@ -41,10 +56,10 @@ Then from any project:
 
 ```bash
 cd /path/to/your/project
-yolobox
+yolobox claude    # Let it rip
 ```
 
-You're now in a sandboxed shell. Run `claude` and let it rip.
+Or use any other AI tool: `yolobox codex`, `yolobox gemini`, `yolobox copilot`.
 
 ## What's in the Box?
 
@@ -75,9 +90,16 @@ No confirmations, no guardrails—just pure unfiltered AI, the way nature intend
 ## Commands
 
 ```bash
-yolobox                     # Drop into interactive shell
-yolobox run <cmd...>        # Run a single command
-yolobox run claude          # Run Claude Code in sandbox
+# AI tool shortcuts (recommended)
+yolobox claude              # Run Claude Code
+yolobox codex               # Run OpenAI Codex
+yolobox gemini              # Run Gemini CLI
+yolobox opencode            # Run OpenCode
+yolobox copilot             # Run GitHub Copilot
+
+# General commands
+yolobox                     # Drop into interactive shell (for manual use)
+yolobox run <cmd...>        # Run any command in sandbox
 yolobox setup               # Configure yolobox settings
 yolobox upgrade             # Update binary and pull latest image
 yolobox config              # Show resolved configuration
