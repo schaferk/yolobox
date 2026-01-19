@@ -57,21 +57,18 @@ yolobox codex     # Or Codex, or any other AI tool
 
 That's it. You launch the AI and let it work. You're not meant to manually enter the box and set things up—the AI does that itself.
 
-**Why?** The AI agent has full sudo access inside the container. If it needs a compiler, database, or framework you don't have—it just installs it. Named volumes persist these installations across sessions, so setup happens once.
-
-The base image includes broadly useful tools (Node, Python, Go, Bun, common CLIs), and the AI handles the rest. You point it at your project and let it cook.
+**Why?** The AI agent has full sudo access inside the container. If it needs a compiler, database, or framework—it just installs it. Named volumes persist these installations across sessions, so setup happens once. You point it at your project and let it cook.
 
 ## What's in the Box?
 
 The base image comes batteries-included:
 - **AI CLIs**: Claude Code, Gemini CLI, OpenAI Codex, OpenCode, Copilot (all pre-configured for full-auto mode!)
-- **Node.js 22** + npm/yarn/pnpm
-- **Python 3** + pip + venv
+- **Runtimes**: Node.js 22, Python 3, Go, Bun
 - **Build tools**: make, cmake, gcc
 - **Git** + **GitHub CLI**
 - **Common utilities**: ripgrep, fd, fzf, jq, vim
 
-Need something else? You have sudo.
+Need something else? The AI has sudo.
 
 ## AI CLIs Run in YOLO Mode
 
