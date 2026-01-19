@@ -46,6 +46,20 @@ yolobox claude    # Let it rip
 
 Or use any other AI tool: `yolobox codex`, `yolobox gemini`, `yolobox copilot`.
 
+## AI CLIs Run in YOLO Mode
+
+Inside yolobox, the AI CLIs are aliased to skip all permission prompts:
+
+| Command | Expands to |
+|---------|------------|
+| `claude` | `claude --dangerously-skip-permissions` |
+| `codex` | `codex --dangerously-bypass-approvals-and-sandbox` |
+| `gemini` | `gemini --yolo` |
+| `opencode` | `opencode` (no yolo flag available yet) |
+| `copilot` | `copilot --yolo` |
+
+No confirmations, no guardrails—just pure unfiltered AI, the way nature intended.
+
 ## Philosophy: It's the AI's Box, Not Yours
 
 yolobox is designed for AI agents, not humans. The typical workflow is:
@@ -69,20 +83,6 @@ The base image comes batteries-included:
 - **Common utilities**: ripgrep, fd, fzf, jq, vim
 
 Need something else? The AI has sudo.
-
-## AI CLIs Run in YOLO Mode
-
-Inside yolobox, the AI CLIs are aliased to skip all permission prompts:
-
-| Command | Expands to |
-|---------|------------|
-| `claude` | `claude --dangerously-skip-permissions` |
-| `codex` | `codex --dangerously-bypass-approvals-and-sandbox` |
-| `gemini` | `gemini --yolo` |
-| `opencode` | `opencode` (no yolo flag available yet) |
-| `copilot` | `copilot --yolo` |
-
-No confirmations, no guardrails—just pure unfiltered AI, the way nature intended.
 
 ## Commands
 
