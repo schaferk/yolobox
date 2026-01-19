@@ -269,6 +269,8 @@ func runCmd() error {
 			if err != nil {
 				return err
 			}
+			// Print logo before running tool
+			fmt.Fprint(os.Stderr, colorCyan+logo+colorReset)
 			// Build command: tool name + any remaining args
 			command := append([]string{args[0]}, rest...)
 			return runCommand(cfg, command, false)
