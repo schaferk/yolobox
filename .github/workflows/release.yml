@@ -85,29 +85,31 @@ jobs:
           git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/finbarr/homebrew-tap.git
           cd homebrew-tap
 
-          cat > Formula/yolobox.rb << EOF
+          cat > Formula/yolobox.rb << 'EOF'
           class Yolobox < Formula
             desc "Run AI coding agents in a sandboxed container"
             homepage "https://github.com/finbarr/yolobox"
-            url "https://github.com/finbarr/yolobox/archive/refs/tags/v${VERSION}.tar.gz"
-            sha256 "${SHA256}"
+            url "https://github.com/finbarr/yolobox/archive/refs/tags/v__VERSION__.tar.gz"
+            sha256 "__SHA256__"
             license "MIT"
 
             depends_on "go" => :build
 
             def install
-              ldflags = "-s -w -X main.Version=\#{version}"
+              ldflags = "-s -w -X main.Version=#{version}"
               system "go", "build", *std_go_args(ldflags: ldflags), "./cmd/yolobox"
             end
 
             test do
-              assert_match version.to_s, shell_output("\#{bin}/yolobox version")
+              assert_match version.to_s, shell_output("#{bin}/yolobox version")
             end
           end
           EOF
 
-          # Remove leading whitespace from heredoc
+          # Remove leading whitespace and substitute version/sha
           sed -i 's/^          //' Formula/yolobox.rb
+          sed -i "s/__VERSION__/${VERSION}/g" Formula/yolobox.rb
+          sed -i "s/__SHA256__/${SHA256}/g" Formula/yolobox.rb
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
