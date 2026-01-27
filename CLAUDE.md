@@ -143,7 +143,7 @@ Document solutions here when something takes multiple attempts to figure out.
 - **SIGKILL in docker build but not docker run?** Use multi-stage build. Memory accumulates across layers; isolate heavy installers in a separate stage and COPY the result.
 - **Claude Code config lives in TWO places**: `~/.claude/` (settings, history) AND `~/.claude.json` (onboarding state, preferences). Mount both.
 - **Claude Code needs writable config**: Can't mount `~/.claude` read-only; Claude writes to it at runtime. Solution: mount to staging area (`/host-claude/`) and copy on container start via entrypoint.
-- **OAuth tokens on macOS are in Keychain**: Can't copy them to container. On Linux, Claude stores creds in `~/.claude/.credentials.json`. Users must either use API key or `/login` inside container.
+- **OAuth tokens on macOS are in Keychain**: Claude stores OAuth creds in Keychain on macOS, not in `~/.claude/`. Solution: `--claude-config` now extracts credentials from Keychain via `security find-generic-password -s "Claude Code-credentials" -w` and mounts them to `/host-claude/.credentials.json`, which the entrypoint copies to `/home/yolo/.claude/.credentials.json`.
 - **GitHub CLI tokens on macOS are in Keychain**: `~/.config/gh/hosts.yml` only has user metadata, not the token. Use `gh auth token` to extract it, then pass as `GH_TOKEN` env var. This is what `--gh-token` does.
 - **Colima defaults to 2GB RAM**: Claude Code gets OOM killed. Need 4GB+. yolobox now warns if Docker has < 4GB.
 - **Named volumes shadow image contents**: The `yolobox-home` volume mounts over `/home/yolo`, so new files added to the image's `/home/yolo` won't appear for existing users. Solution: put configs in `/etc/` if they must be visible without volume deletion.

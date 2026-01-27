@@ -209,6 +209,15 @@ RUN mkdir -p /host-claude /host-git /host-agent-instructions /host-files && \
     '    sudo cp -a "$HF/claude/.claude.json" /home/yolo/.claude.json' \
     '    sudo chown yolo:yolo /home/yolo/.claude.json' \
     'fi' \
+    '# Copy Claude credentials from macOS Keychain (extracted by yolobox)' \
+    'CREDS_FILE="/host-claude/.credentials.json"' \
+    '[ ! -f "$CREDS_FILE" ] && [ -f "$HF/claude/.credentials.json" ] && CREDS_FILE="$HF/claude/.credentials.json"' \
+    'if [ -f "$CREDS_FILE" ]; then' \
+    '    mkdir -p /home/yolo/.claude' \
+    '    sudo cp -a "$CREDS_FILE" /home/yolo/.claude/.credentials.json' \
+    '    sudo chown yolo:yolo /home/yolo/.claude/.credentials.json' \
+    '    sudo chmod 600 /home/yolo/.claude/.credentials.json' \
+    'fi' \
     '' \
     '# Copy git config from host staging area if present' \
     'if [ -f /host-git/.gitconfig ]; then' \

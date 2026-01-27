@@ -1133,6 +1133,20 @@ func buildRunArgs(cfg Config, projectDir string, command []string, interactive b
 				args = append(args, "-v", claudeConfigFile+":/host-claude/.claude.json:ro")
 			}
 		}
+		// On macOS, extract OAuth credentials from Keychain and mount as .credentials.json
+		// Write to ~/.yolobox/tmp/ which is definitely accessible to Docker
+		if creds := getClaudeCredentials(); creds != "" {
+			tmpDir := filepath.Join(home, ".yolobox", "tmp")
+			os.MkdirAll(tmpDir, 0700)
+			credsPath := filepath.Join(tmpDir, "claude-credentials.json")
+			if err := os.WriteFile(credsPath, []byte(creds), 0600); err == nil {
+				if appleContainer {
+					appleContainerFiles[credsPath] = "claude/.credentials.json"
+				} else {
+					args = append(args, "-v", credsPath+":/host-claude/.credentials.json:ro")
+				}
+			}
+		}
 	}
 
 	// Mount git config from host to staging area (copied to /home/yolo by entrypoint)
@@ -1331,6 +1345,20 @@ func execRuntime(runtime string, args []string) error {
 // Returns empty string if gh is not installed or not logged in
 func getGhToken() string {
 	cmd := exec.Command("gh", "auth", "token")
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(output))
+}
+
+// getClaudeCredentials extracts Claude Code OAuth credentials from macOS Keychain
+// Returns empty string on non-macOS or if not logged in
+func getClaudeCredentials() string {
+	if runtime.GOOS != "darwin" {
+		return ""
+	}
+	cmd := exec.Command("security", "find-generic-password", "-s", "Claude Code-credentials", "-w")
 	output, err := cmd.Output()
 	if err != nil {
 		return ""
