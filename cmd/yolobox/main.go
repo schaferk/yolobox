@@ -78,6 +78,7 @@ type Config struct {
 	Scratch               bool     `toml:"scratch"`
 	ClaudeConfig          bool     `toml:"claude_config"`
 	GitConfig             bool     `toml:"git_config"`
+	GhToken               bool     `toml:"gh_token"`
 	CopyAgentInstructions bool     `toml:"copy_agent_instructions"`
 
 	// Runtime-only fields (not persisted to config file)
@@ -316,6 +317,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  --readonly-project    Mount project directory read-only")
 	fmt.Fprintln(os.Stderr, "  --claude-config       Copy host Claude config to container")
 	fmt.Fprintln(os.Stderr, "  --git-config          Copy host git config to container")
+	fmt.Fprintln(os.Stderr, "  --gh-token            Forward GitHub CLI token (from gh auth token)")
 	fmt.Fprintln(os.Stderr, "  --copy-agent-instructions  Copy global agent instruction files")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintf(os.Stderr, "%sCONFIG:%s\n", colorBold, colorReset)
@@ -358,6 +360,7 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 		scratch               bool
 		claudeConfig          bool
 		gitConfig             bool
+		ghToken               bool
 		copyAgentInstructions bool
 		setup                 bool
 		mounts                stringSliceFlag
@@ -373,6 +376,7 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 	fs.BoolVar(&scratch, "scratch", false, "fresh environment, no persistent volumes")
 	fs.BoolVar(&claudeConfig, "claude-config", false, "copy host Claude config to container")
 	fs.BoolVar(&gitConfig, "git-config", false, "copy host git config to container")
+	fs.BoolVar(&ghToken, "gh-token", false, "forward GitHub CLI token (from gh auth token)")
 	fs.BoolVar(&copyAgentInstructions, "copy-agent-instructions", false, "copy agent instruction files (CLAUDE.md, GEMINI.md, AGENTS.md)")
 	fs.BoolVar(&setup, "setup", false, "run interactive setup before starting")
 	fs.Var(&mounts, "mount", "extra mount src:dst")
@@ -412,6 +416,9 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 	}
 	if gitConfig {
 		cfg.GitConfig = true
+	}
+	if ghToken {
+		cfg.GhToken = true
 	}
 	if copyAgentInstructions {
 		cfg.CopyAgentInstructions = true
@@ -516,6 +523,9 @@ func mergeConfig(dst *Config, src Config) {
 	if src.GitConfig {
 		dst.GitConfig = true
 	}
+	if src.GhToken {
+		dst.GhToken = true
+	}
 	if src.CopyAgentInstructions {
 		dst.CopyAgentInstructions = true
 	}
@@ -536,6 +546,9 @@ func runShell(cfg Config) error {
 			// Merge setup results into config (preserving any CLI overrides)
 			if !cfg.GitConfig {
 				cfg.GitConfig = newCfg.GitConfig
+			}
+			if !cfg.GhToken {
+				cfg.GhToken = newCfg.GhToken
 			}
 			if !cfg.SSHAgent {
 				cfg.SSHAgent = newCfg.SSHAgent
@@ -598,6 +611,7 @@ func printConfig(cfg Config) error {
 	fmt.Printf("%sscratch:%s %t\n", colorBold, colorReset, cfg.Scratch)
 	fmt.Printf("%sclaude_config:%s %t\n", colorBold, colorReset, cfg.ClaudeConfig)
 	fmt.Printf("%sgit_config:%s %t\n", colorBold, colorReset, cfg.GitConfig)
+	fmt.Printf("%sgh_token:%s %t\n", colorBold, colorReset, cfg.GhToken)
 	fmt.Printf("%scopy_agent_instructions:%s %t\n", colorBold, colorReset, cfg.CopyAgentInstructions)
 	if len(cfg.Mounts) > 0 {
 		fmt.Printf("%smounts:%s\n", colorBold, colorReset)
@@ -641,6 +655,9 @@ func saveGlobalConfig(cfg Config) error {
 	var lines []string
 	if cfg.GitConfig {
 		lines = append(lines, "git_config = true")
+	}
+	if cfg.GhToken {
+		lines = append(lines, "gh_token = true")
 	}
 	if cfg.SSHAgent {
 		lines = append(lines, "ssh_agent = true")
@@ -710,6 +727,9 @@ func runSetup() (Config, error) {
 	if cfg.GitConfig {
 		selectedOptions = append(selectedOptions, "git_config")
 	}
+	if cfg.GhToken {
+		selectedOptions = append(selectedOptions, "gh_token")
+	}
 	if cfg.SSHAgent {
 		selectedOptions = append(selectedOptions, "ssh_agent")
 	}
@@ -738,6 +758,7 @@ func runSetup() (Config, error) {
 				Title("What do you want inside the box?").
 				Options(
 					huh.NewOption("Git identity (copy ~/.gitconfig)", "git_config"),
+					huh.NewOption("GitHub CLI token (forward gh auth)", "gh_token"),
 					huh.NewOption("SSH agent (for git over SSH)", "ssh_agent"),
 					huh.NewOption("No network (disable internet access)", "no_network"),
 					huh.NewOption("No YOLO (disable auto-confirm in AI CLIs)", "no_yolo"),
@@ -756,6 +777,7 @@ func runSetup() (Config, error) {
 
 	// Build config from form values
 	cfg.GitConfig = contains(selectedOptions, "git_config")
+	cfg.GhToken = contains(selectedOptions, "gh_token")
 	cfg.SSHAgent = contains(selectedOptions, "ssh_agent")
 	cfg.NoNetwork = contains(selectedOptions, "no_network")
 	cfg.NoYolo = contains(selectedOptions, "no_yolo")
@@ -965,6 +987,13 @@ func buildRunArgs(cfg Config, projectDir string, command []string, interactive b
 	for _, key := range autoPassthroughEnvVars {
 		if val := os.Getenv(key); val != "" {
 			args = append(args, "-e", key+"="+val)
+		}
+	}
+
+	// Forward GitHub CLI token (extracted from keychain/credential store)
+	if cfg.GhToken {
+		if token := getGhToken(); token != "" {
+			args = append(args, "-e", "GH_TOKEN="+token)
 		}
 	}
 
@@ -1208,6 +1237,17 @@ func execRuntime(runtime string, args []string) error {
 		return err
 	}
 	return execCommand(runtimePath, args)
+}
+
+// getGhToken extracts the GitHub CLI token from the host's credential store
+// Returns empty string if gh is not installed or not logged in
+func getGhToken() string {
+	cmd := exec.Command("gh", "auth", "token")
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(output))
 }
 
 // checkDockerMemory warns if Docker has less than 4GB RAM available
