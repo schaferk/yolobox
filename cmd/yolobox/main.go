@@ -267,14 +267,22 @@ func runCmd() error {
 	default:
 		// Check if it's a tool shortcut (e.g., "yolobox claude", "yolobox codex")
 		if isToolShortcut(args[0]) {
-			cfg, rest, err := parseBaseFlags(args[0], args[1:], projectDir)
+			toolName := args[0]
+			// Split args so tool-specific flags (like --resume) pass through
+			yoloboxArgs, toolArgs := splitToolArgs(args[1:])
+
+			cfg, rest, err := parseBaseFlags(toolName, yoloboxArgs, projectDir)
 			if err != nil {
 				return err
 			}
+
+			// Combine any remaining args from flag parsing with tool args
+			allToolArgs := append(rest, toolArgs...)
+
 			// Print logo before running tool
 			fmt.Fprint(os.Stderr, colorCyan+logo+colorReset)
-			// Build command: tool name + any remaining args
-			command := append([]string{args[0]}, rest...)
+			// Build command: tool name + any tool args
+			command := append([]string{toolName}, allToolArgs...)
 			return runCommand(cfg, command, false)
 		}
 		return fmt.Errorf("unknown command: %s (try 'yolobox help')", args[0])
@@ -826,6 +834,65 @@ func contains(slice []string, val string) bool {
 // isToolShortcut checks if a command is a tool shortcut
 func isToolShortcut(cmd string) bool {
 	return contains(toolShortcuts, cmd)
+}
+
+// splitToolArgs separates yolobox flags from tool flags for shortcuts.
+// This allows `yolobox claude --resume` to pass --resume to claude instead of
+// failing because --resume is not a known yolobox flag.
+func splitToolArgs(args []string) (yoloboxArgs, toolArgs []string) {
+	knownFlags := map[string]bool{
+		"runtime": true, "image": true, "network": true,
+		"ssh-agent": true, "readonly-project": true, "no-network": true,
+		"no-yolo": true, "scratch": true, "claude-config": true,
+		"git-config": true, "gh-token": true, "copy-agent-instructions": true,
+		"setup": true, "mount": true, "env": true,
+		"h": true, "help": true,
+	}
+
+	flagsWithValues := map[string]bool{
+		"runtime": true, "image": true, "network": true,
+		"mount": true, "env": true,
+	}
+
+	i := 0
+	for i < len(args) {
+		arg := args[i]
+
+		if arg == "--" {
+			// Everything after -- goes to the tool
+			return yoloboxArgs, args[i+1:]
+		}
+
+		if !strings.HasPrefix(arg, "-") {
+			// Non-flag argument - this and rest go to tool
+			return yoloboxArgs, args[i:]
+		}
+
+		// It's a flag, extract the name
+		flagName := strings.TrimLeft(arg, "-")
+		hasValue := false
+		if idx := strings.Index(flagName, "="); idx != -1 {
+			flagName = flagName[:idx]
+			hasValue = true
+		}
+
+		if !knownFlags[flagName] {
+			// Unknown flag - this and rest go to tool
+			return yoloboxArgs, args[i:]
+		}
+
+		// Known yolobox flag
+		yoloboxArgs = append(yoloboxArgs, arg)
+		i++
+
+		// If it's a flag that takes a value and doesn't have =, consume next arg
+		if flagsWithValues[flagName] && !hasValue && i < len(args) && !strings.HasPrefix(args[i], "-") {
+			yoloboxArgs = append(yoloboxArgs, args[i])
+			i++
+		}
+	}
+
+	return yoloboxArgs, nil
 }
 
 func resetVolumes(args []string) error {

@@ -443,3 +443,105 @@ func TestParseFlagsNetworkConflict(t *testing.T) {
 		t.Errorf("expected conflict error message, got: %v", err)
 	}
 }
+
+func TestSplitToolArgs(t *testing.T) {
+	tests := []struct {
+		name         string
+		args         []string
+		wantYolobox  []string
+		wantTool     []string
+	}{
+		{
+			name:        "tool flag only",
+			args:        []string{"--resume"},
+			wantYolobox: nil,
+			wantTool:    []string{"--resume"},
+		},
+		{
+			name:        "tool flag with value",
+			args:        []string{"--resume", "abc123"},
+			wantYolobox: nil,
+			wantTool:    []string{"--resume", "abc123"},
+		},
+		{
+			name:        "yolobox flag then tool flag",
+			args:        []string{"--no-network", "--resume"},
+			wantYolobox: []string{"--no-network"},
+			wantTool:    []string{"--resume"},
+		},
+		{
+			name:        "yolobox flag with value then tool flag",
+			args:        []string{"--env", "FOO=bar", "--resume"},
+			wantYolobox: []string{"--env", "FOO=bar"},
+			wantTool:    []string{"--resume"},
+		},
+		{
+			name:        "yolobox flag with equals then tool flag",
+			args:        []string{"--env=FOO=bar", "--resume"},
+			wantYolobox: []string{"--env=FOO=bar"},
+			wantTool:    []string{"--resume"},
+		},
+		{
+			name:        "multiple yolobox flags then tool args",
+			args:        []string{"--no-network", "--scratch", "--resume", "abc123"},
+			wantYolobox: []string{"--no-network", "--scratch"},
+			wantTool:    []string{"--resume", "abc123"},
+		},
+		{
+			name:        "explicit separator",
+			args:        []string{"--no-network", "--", "--help"},
+			wantYolobox: []string{"--no-network"},
+			wantTool:    []string{"--help"},
+		},
+		{
+			name:        "non-flag arg",
+			args:        []string{"somefile.txt"},
+			wantYolobox: nil,
+			wantTool:    []string{"somefile.txt"},
+		},
+		{
+			name:        "yolobox flag then non-flag arg",
+			args:        []string{"--scratch", "somefile.txt"},
+			wantYolobox: []string{"--scratch"},
+			wantTool:    []string{"somefile.txt"},
+		},
+		{
+			name:        "no args",
+			args:        []string{},
+			wantYolobox: nil,
+			wantTool:    nil,
+		},
+		{
+			name:        "only yolobox flags",
+			args:        []string{"--scratch", "--no-network"},
+			wantYolobox: []string{"--scratch", "--no-network"},
+			wantTool:    nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotYolobox, gotTool := splitToolArgs(tt.args)
+
+			if len(gotYolobox) != len(tt.wantYolobox) {
+				t.Errorf("yolobox args: got %v, want %v", gotYolobox, tt.wantYolobox)
+			} else {
+				for i := range gotYolobox {
+					if gotYolobox[i] != tt.wantYolobox[i] {
+						t.Errorf("yolobox args[%d]: got %q, want %q", i, gotYolobox[i], tt.wantYolobox[i])
+					}
+				}
+			}
+
+			if len(gotTool) != len(tt.wantTool) {
+				t.Errorf("tool args: got %v, want %v", gotTool, tt.wantTool)
+			} else {
+				for i := range gotTool {
+					if gotTool[i] != tt.wantTool[i] {
+						t.Errorf("tool args[%d]: got %q, want %q", i, gotTool[i], tt.wantTool[i])
+					}
+				}
+			}
+		})
+	}
+}
