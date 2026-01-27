@@ -91,12 +91,15 @@ yolobox help                # Show help
 | `--setup` | Run interactive setup before starting |
 | `--ssh-agent` | Forward SSH agent socket |
 | `--no-network` | Disable network access |
+| `--network <name>` | Join specific network (e.g., docker compose) |
 | `--no-yolo` | Disable auto-confirmations (mindful mode) |
 | `--readonly-project` | Mount project read-only (outputs go to `/output`) |
 | `--claude-config` | Copy host `~/.claude` config into container |
 | `--git-config` | Copy host `~/.gitconfig` into container |
 | `--gh-token` | Forward GitHub CLI token (extracts from keychain via `gh auth token`) |
 | `--copy-agent-instructions` | Copy global agent instruction files (see below) |
+
+> **Networking:** By default, yolobox uses Docker's bridge network (internet access, no container DNS). Use `--network <name>` to join a docker compose network and access services by name. Use `--no-network` for complete isolation.
 
 ## Configuration
 
@@ -109,6 +112,7 @@ git_config = true
 gh_token = true
 ssh_agent = true
 no_network = true
+network = "my_compose_network"
 no_yolo = true
 ```
 
@@ -224,7 +228,7 @@ If you're worried about an AI actively trying to escape containment, you need VM
 
 **What yolobox does NOT protect:**
 - Your project directory (it's mounted read-write by default)
-- Network access (use `--no-network` to disable)
+- Network access (use `--no-network` to disable, or `--network <name>` for specific networks)
 - The container itself (the AI has root via sudo)
 - Against kernel exploits or container escape vulnerabilities
 
