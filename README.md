@@ -52,9 +52,9 @@ Or use any other AI tool: `yolobox codex`, `yolobox gemini`, `yolobox copilot`.
 
 yolobox auto-detects available runtimes. To use a specific runtime:
 ```bash
-yolobox --runtime container  # Apple container
-yolobox --runtime docker     # Docker
-yolobox --runtime podman     # Podman
+yolobox claude --runtime container   # Apple container
+yolobox claude --runtime docker      # Docker
+yolobox claude --runtime podman      # Podman
 ```
 
 > **Memory:** Claude Code needs **4GB+ RAM** allocated to Docker. Colima defaults to 2GB which will cause OOM kills. Increase with: `colima stop && colima start --memory 8`
@@ -81,6 +81,8 @@ yolobox help                # Show help
 ```
 
 ## Flags
+
+> **Note:** Flags go **after** the subcommand: `yolobox run --flag cmd` or `yolobox claude --flag`, not `yolobox --flag run cmd`.
 
 | Flag | Description |
 |------|-------------|

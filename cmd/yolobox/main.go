@@ -225,7 +225,7 @@ func runCmd() error {
 			return err
 		}
 		if len(rest) != 0 {
-			return fmt.Errorf("unexpected args: %v", rest)
+			return fmt.Errorf("unexpected args: %v\n  Hint: flags go after the subcommand: yolobox run --flag cmd (not yolobox --flag run cmd)", rest)
 		}
 		return runShell(cfg)
 	}
@@ -285,7 +285,7 @@ func runCmd() error {
 			command := append([]string{toolName}, allToolArgs...)
 			return runCommand(cfg, command, false)
 		}
-		return fmt.Errorf("unknown command: %s (try 'yolobox help')", args[0])
+		return fmt.Errorf("unknown command: %s (try 'yolobox help')\n  Hint: if using flags, put them after the subcommand: yolobox run --flag cmd", args[0])
 	}
 }
 
