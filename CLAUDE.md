@@ -28,6 +28,17 @@ git push origin master --tags
 
 **Always commit changes after completing work.** Don't leave uncommitted changes - if you modified files, commit them before finishing.
 
+**You MUST verify changes actually work before committing.** Unit tests passing is necessary but NOT sufficient. You must build the binary and run the actual feature end-to-end:
+
+1. `make clean && make build && make test` — this is the minimum, not the finish line.
+2. **Run the specific feature you changed.** If you changed `--docker`, run `./yolobox run --docker docker version`. If you changed `--no-network`, run `./yolobox run --no-network curl https://google.com`. If you changed config loading, run `./yolobox config`. Do not commit a fix you haven't exercised in a real container.
+3. Check the output. Don't just verify "no error" — verify the output is correct. A command that silently does the wrong thing is worse than one that errors.
+
+Do NOT:
+- Commit based on "the code looks right" without running it
+- Treat `make test` alone as proof that a change works — unit tests mock the runtime and won't catch issues like incorrect Docker mount paths, missing files in containers, or wrong socket paths
+- Push a fix for a bug without reproducing the original failure first and confirming it's gone
+
 **When adding new flags or config options:**
 1. Add the flag to `cmd/yolobox/main.go` (Config struct, parseBaseFlags, mergeConfig, buildRunArgs, printConfig, saveGlobalConfig, runSetup)
 2. Update `README.md`:
