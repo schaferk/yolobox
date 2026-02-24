@@ -83,6 +83,7 @@ type Config struct {
 	GitConfig             bool     `toml:"git_config"`
 	GhToken               bool     `toml:"gh_token"`
 	CopyAgentInstructions bool     `toml:"copy_agent_instructions"`
+	Docker                bool     `toml:"docker"`
 
 	// Runtime-only fields (not persisted to config file)
 	Setup bool `toml:"-"` // Run interactive setup before starting
@@ -332,6 +333,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  --git-config          Copy host git config to container")
 	fmt.Fprintln(os.Stderr, "  --gh-token            Forward GitHub CLI token (from gh auth token)")
 	fmt.Fprintln(os.Stderr, "  --copy-agent-instructions  Copy global agent instruction files")
+	fmt.Fprintln(os.Stderr, "  --docker              Mount Docker socket and join shared network")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintf(os.Stderr, "%sCONFIG:%s\n", colorBold, colorReset)
 	fmt.Fprintln(os.Stderr, "  Global:  ~/.config/yolobox/config.toml")
@@ -377,6 +379,7 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 		gitConfig             bool
 		ghToken               bool
 		copyAgentInstructions bool
+		docker                bool
 		setup                 bool
 		mounts                stringSliceFlag
 		envVars               stringSliceFlag
@@ -395,6 +398,7 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 	fs.BoolVar(&gitConfig, "git-config", false, "copy host git config to container")
 	fs.BoolVar(&ghToken, "gh-token", false, "forward GitHub CLI token (from gh auth token)")
 	fs.BoolVar(&copyAgentInstructions, "copy-agent-instructions", false, "copy agent instruction files (CLAUDE.md, GEMINI.md, AGENTS.md)")
+	fs.BoolVar(&docker, "docker", false, "mount Docker socket and join shared network")
 	fs.BoolVar(&setup, "setup", false, "run interactive setup before starting")
 	fs.Var(&mounts, "mount", "extra mount src:dst")
 	fs.Var(&envVars, "env", "environment variable KEY=value")
@@ -446,6 +450,9 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 	if copyAgentInstructions {
 		cfg.CopyAgentInstructions = true
 	}
+	if docker {
+		cfg.Docker = true
+	}
 	if setup {
 		cfg.Setup = true
 	}
@@ -459,6 +466,9 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 	// Validate conflicting options
 	if cfg.Network != "" && cfg.NoNetwork {
 		return cfg, nil, fmt.Errorf("cannot use --network with --no-network")
+	}
+	if cfg.Docker && cfg.NoNetwork {
+		return cfg, nil, fmt.Errorf("cannot use --docker with --no-network")
 	}
 
 	return cfg, fs.Args(), nil
@@ -563,6 +573,9 @@ func mergeConfig(dst *Config, src Config) {
 	if src.CopyAgentInstructions {
 		dst.CopyAgentInstructions = true
 	}
+	if src.Docker {
+		dst.Docker = true
+	}
 }
 
 func runShell(cfg Config) error {
@@ -586,6 +599,9 @@ func runShell(cfg Config) error {
 			}
 			if !cfg.SSHAgent {
 				cfg.SSHAgent = newCfg.SSHAgent
+			}
+			if !cfg.Docker {
+				cfg.Docker = newCfg.Docker
 			}
 			if !cfg.NoNetwork {
 				cfg.NoNetwork = newCfg.NoNetwork
@@ -623,6 +639,17 @@ func runCommand(cfg Config, command []string, interactive bool) error {
 	// Warn if Docker has low memory (can cause OOM with Claude)
 	checkDockerMemory(cfg.Runtime)
 
+	// Ensure Docker network exists before starting container
+	if cfg.Docker {
+		networkName := cfg.Network
+		if networkName == "" {
+			networkName = "yolobox-net"
+		}
+		if err := ensureDockerNetwork(cfg.Runtime, networkName); err != nil {
+			return err
+		}
+	}
+
 	args, err := buildRunArgs(cfg, projectDir, command, interactive)
 	if err != nil {
 		return err
@@ -649,6 +676,7 @@ func printConfig(cfg Config) error {
 	fmt.Printf("%sgit_config:%s %t\n", colorBold, colorReset, cfg.GitConfig)
 	fmt.Printf("%sgh_token:%s %t\n", colorBold, colorReset, cfg.GhToken)
 	fmt.Printf("%scopy_agent_instructions:%s %t\n", colorBold, colorReset, cfg.CopyAgentInstructions)
+	fmt.Printf("%sdocker:%s %t\n", colorBold, colorReset, cfg.Docker)
 	if len(cfg.Mounts) > 0 {
 		fmt.Printf("%smounts:%s\n", colorBold, colorReset)
 		for _, m := range cfg.Mounts {
@@ -706,6 +734,9 @@ func saveGlobalConfig(cfg Config) error {
 	}
 	if cfg.NoYolo {
 		lines = append(lines, "no_yolo = true")
+	}
+	if cfg.Docker {
+		lines = append(lines, "docker = true")
 	}
 
 	content := strings.Join(lines, "\n")
@@ -778,6 +809,9 @@ func runSetup() (Config, error) {
 	if cfg.NoYolo {
 		selectedOptions = append(selectedOptions, "no_yolo")
 	}
+	if cfg.Docker {
+		selectedOptions = append(selectedOptions, "docker")
+	}
 
 	// Print header with box
 	headerStyle := lipgloss.NewStyle().
@@ -799,6 +833,7 @@ func runSetup() (Config, error) {
 					huh.NewOption("Git identity (copy ~/.gitconfig)", "git_config"),
 					huh.NewOption("GitHub CLI token (forward gh auth)", "gh_token"),
 					huh.NewOption("SSH agent (for git over SSH)", "ssh_agent"),
+					huh.NewOption("Docker socket (run containers from sandbox)", "docker"),
 					huh.NewOption("No network (disable internet access)", "no_network"),
 					huh.NewOption("No YOLO (disable auto-confirm in AI CLIs)", "no_yolo"),
 				).
@@ -818,6 +853,7 @@ func runSetup() (Config, error) {
 	cfg.GitConfig = contains(selectedOptions, "git_config")
 	cfg.GhToken = contains(selectedOptions, "gh_token")
 	cfg.SSHAgent = contains(selectedOptions, "ssh_agent")
+	cfg.Docker = contains(selectedOptions, "docker")
 	cfg.NoNetwork = contains(selectedOptions, "no_network")
 	cfg.NoYolo = contains(selectedOptions, "no_yolo")
 
@@ -857,7 +893,7 @@ func splitToolArgs(args []string) (yoloboxArgs, toolArgs []string) {
 		"ssh-agent": true, "readonly-project": true, "no-network": true,
 		"no-yolo": true, "scratch": true, "claude-config": true,
 		"gemini-config": true, "git-config": true, "gh-token": true,
-		"copy-agent-instructions": true, "setup": true, "mount": true,
+		"copy-agent-instructions": true, "docker": true, "setup": true, "mount": true,
 		"env": true, "h": true, "help": true,
 	}
 
@@ -1047,6 +1083,54 @@ func prepareFileMountDir(files map[string]string) (string, error) {
 	}
 
 	return tmpDir, nil
+}
+
+// findDockerSocket returns the path to the Docker socket on the host.
+// It checks DOCKER_HOST, common macOS paths, and the Linux default.
+func findDockerSocket() (string, error) {
+	// Check DOCKER_HOST env var
+	if dh := os.Getenv("DOCKER_HOST"); dh != "" {
+		if strings.HasPrefix(dh, "unix://") {
+			sock := strings.TrimPrefix(dh, "unix://")
+			if _, err := os.Stat(sock); err == nil {
+				return sock, nil
+			}
+		}
+	}
+
+	home, _ := os.UserHomeDir()
+	candidates := []string{
+		filepath.Join(home, ".docker", "run", "docker.sock"), // Docker Desktop macOS
+		filepath.Join(home, ".colima", "default", "docker.sock"), // Colima
+		"/var/run/docker.sock", // Linux default
+	}
+
+	for _, sock := range candidates {
+		if _, err := os.Stat(sock); err == nil {
+			return sock, nil
+		}
+	}
+
+	return "", fmt.Errorf("Docker socket not found. Is Docker running?")
+}
+
+// ensureDockerNetwork creates the yolobox-net Docker network if it doesn't exist.
+func ensureDockerNetwork(runtimeName string, networkName string) error {
+	runtimePath, err := resolveRuntime(runtimeName)
+	if err != nil {
+		return err
+	}
+
+	cmd := exec.Command(runtimePath, "network", "create", networkName)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// Ignore "already exists" errors
+		if strings.Contains(string(output), "already exists") {
+			return nil
+		}
+		return fmt.Errorf("failed to create Docker network %q: %s", networkName, strings.TrimSpace(string(output)))
+	}
+	return nil
 }
 
 func buildRunArgs(cfg Config, projectDir string, command []string, interactive bool) ([]string, error) {
@@ -1270,6 +1354,20 @@ func buildRunArgs(cfg Config, projectDir string, command []string, interactive b
 				args = append(args, "-e", "SSH_AUTH_SOCK=/ssh-agent")
 			}
 		}
+	}
+
+	// Docker socket forwarding
+	if cfg.Docker {
+		sock, err := findDockerSocket()
+		if err != nil {
+			return nil, err
+		}
+		args = append(args, "-v", sock+":/var/run/docker.sock")
+		// Default to yolobox-net if no explicit network is set
+		if cfg.Network == "" {
+			cfg.Network = "yolobox-net"
+		}
+		args = append(args, "-e", "YOLOBOX_NETWORK="+cfg.Network)
 	}
 
 	// Network configuration

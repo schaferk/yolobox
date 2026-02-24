@@ -101,8 +101,11 @@ yolobox help                # Show help
 | `--git-config` | Copy host `~/.gitconfig` into container |
 | `--gh-token` | Forward GitHub CLI token (extracts from keychain via `gh auth token`) |
 | `--copy-agent-instructions` | Copy global agent instruction files (see below) |
+| `--docker` | Mount Docker socket and join shared network (see below) |
 
 > **Networking:** By default, yolobox uses Docker's bridge network (internet access, no container DNS). Use `--network <name>` to join a docker compose network and access services by name. Use `--no-network` for complete isolation.
+
+> **Docker access:** The `--docker` flag mounts the host Docker socket into the container and joins a shared `yolobox-net` network. This lets the AI agent run Docker commands (build images, start containers, use docker compose) that create sibling containers on the same network. The agent and any services it creates can communicate by container name. The network name is available inside the container as `$YOLOBOX_NETWORK`. Cannot be used with `--no-network`.
 
 ## Configuration
 
@@ -114,6 +117,7 @@ Settings are saved to `~/.config/yolobox/config.toml`:
 git_config = true
 gh_token = true
 ssh_agent = true
+docker = true
 no_network = true
 network = "my_compose_network"
 no_yolo = true

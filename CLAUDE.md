@@ -101,7 +101,13 @@ ANTHROPIC_API_KEY=test ./yolobox run printenv ANTHROPIC_API_KEY  # Should output
 # 11. Git config sharing (opt-in with --git-config)
 ./yolobox run --git-config cat /home/yolo/.gitconfig  # Should show copied host git config
 
-# 12. Global agent instructions (opt-in with --copy-agent-instructions)
+# 12. Docker socket forwarding (opt-in with --docker)
+./yolobox run --docker docker version                         # Should show Docker version
+./yolobox run --docker docker compose version                 # Should show Compose version
+./yolobox run --docker bash -c 'echo $YOLOBOX_NETWORK'       # Should output: yolobox-net
+./yolobox run --docker --no-network echo hi                   # Should error (conflict)
+
+# 13. Global agent instructions (opt-in with --copy-agent-instructions)
 # Creates test file, copies it, then cleans up
 mkdir -p ~/.claude && echo "test" > ~/.claude/CLAUDE.md
 ./yolobox run --copy-agent-instructions cat /home/yolo/.claude/CLAUDE.md  # Should output: test

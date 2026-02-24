@@ -71,6 +71,15 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Docker CLI + Compose (for --docker flag; no daemon, uses host socket)
+RUN install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && \
+    chmod a+r /etc/apt/keyrings/docker.asc && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu noble stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+    apt-get update && \
+    apt-get install -y docker-ce-cli docker-compose-plugin docker-buildx-plugin && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install Bun (from official image)
 COPY --from=bun-source /usr/local/bin/bun /usr/local/bin/bun
 RUN ln -s /usr/local/bin/bun /usr/local/bin/bunx
@@ -291,6 +300,11 @@ RUN mkdir -p /host-claude /host-gemini /host-git /host-agent-instructions /host-
     'fi' \
     'if [ "$COPIED_AGENT_INSTRUCTIONS" = "1" ]; then' \
     '    echo -e "\033[33m→ Copying global agent instructions to container\033[0m" >&2' \
+    'fi' \
+    '' \
+    '# Handle Docker socket permissions (when --docker is used)' \
+    'if [ -S /var/run/docker.sock ]; then' \
+    '    sudo chmod 666 /var/run/docker.sock' \
     'fi' \
     '' \
     '# Ensure npm-global prefix dir exists (named volume may shadow /home/yolo)' \
