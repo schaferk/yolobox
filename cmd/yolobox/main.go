@@ -1129,6 +1129,85 @@ func isAppleContainer(runtime string) bool {
 
 // prepareFileMountDir creates a temp directory with copies of files for Apple container
 // (which only supports directory mounts, not file mounts). Returns the temp dir path.
+// dirContainsSymlinks reports whether dir contains any symbolic links.
+func dirContainsSymlinks(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.Type()&os.ModeSymlink != 0 {
+			return true
+		}
+		// Check subdirectories recursively
+		if e.IsDir() {
+			if dirContainsSymlinks(filepath.Join(dir, e.Name())) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// stageDirResolvingSymlinks copies src to a temp directory under ~/.yolobox/tmp/,
+// dereferencing all symlinks so that every entry is a regular file or directory.
+// Returns the path to the staged copy of the directory.
+func stageDirResolvingSymlinks(src string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	tmpBase := filepath.Join(home, ".yolobox", "tmp")
+	if err := os.MkdirAll(tmpBase, 0700); err != nil {
+		return "", err
+	}
+	dst, err := os.MkdirTemp(tmpBase, "staged-*")
+	if err != nil {
+		return "", err
+	}
+	if err := copyDirDereferenced(src, dst); err != nil {
+		os.RemoveAll(dst)
+		return "", err
+	}
+	return dst, nil
+}
+
+// copyDirDereferenced recursively copies src into dst, following all symlinks.
+// Broken symlinks are silently skipped.
+func copyDirDereferenced(src, dst string) error {
+	if err := os.MkdirAll(dst, 0755); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		srcPath := filepath.Join(src, e.Name())
+		dstPath := filepath.Join(dst, e.Name())
+
+		// Use os.Stat (follows symlinks) to get the real type
+		info, err := os.Stat(srcPath)
+		if err != nil {
+			continue // skip broken symlinks
+		}
+		if info.IsDir() {
+			if err := copyDirDereferenced(srcPath, dstPath); err != nil {
+				return err
+			}
+		} else {
+			data, err := os.ReadFile(srcPath)
+			if err != nil {
+				continue // skip unreadable files
+			}
+			if err := os.WriteFile(dstPath, data, info.Mode()); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func prepareFileMountDir(files map[string]string) (string, error) {
 	tmpDir, err := os.MkdirTemp("", "yolobox-mounts-*")
 	if err != nil {
@@ -1353,7 +1432,16 @@ func buildRunArgs(cfg Config, projectDir string, command []string, interactive b
 		}
 		claudeConfigDir := filepath.Join(home, ".claude")
 		if _, err := os.Stat(claudeConfigDir); err == nil {
-			args = append(args, "-v", claudeConfigDir+":/host-claude/.claude:ro")
+			mountSrc := claudeConfigDir
+			if dirContainsSymlinks(claudeConfigDir) {
+				staged, err := stageDirResolvingSymlinks(claudeConfigDir)
+				if err != nil {
+					warn("Failed to resolve symlinks in %s: %s", claudeConfigDir, err)
+				} else {
+					mountSrc = staged
+				}
+			}
+			args = append(args, "-v", mountSrc+":/host-claude/.claude:ro")
 		}
 		claudeConfigFile := filepath.Join(home, ".claude.json")
 		if _, err := os.Stat(claudeConfigFile); err == nil {
@@ -1390,7 +1478,16 @@ func buildRunArgs(cfg Config, projectDir string, command []string, interactive b
 		}
 		geminiConfigDir := filepath.Join(home, ".gemini")
 		if _, err := os.Stat(geminiConfigDir); err == nil {
-			args = append(args, "-v", geminiConfigDir+":/host-gemini/.gemini:ro")
+			mountSrc := geminiConfigDir
+			if dirContainsSymlinks(geminiConfigDir) {
+				staged, err := stageDirResolvingSymlinks(geminiConfigDir)
+				if err != nil {
+					warn("Failed to resolve symlinks in %s: %s", geminiConfigDir, err)
+				} else {
+					mountSrc = staged
+				}
+			}
+			args = append(args, "-v", mountSrc+":/host-gemini/.gemini:ro")
 		}
 	}
 
@@ -1447,7 +1544,16 @@ func buildRunArgs(cfg Config, projectDir string, command []string, interactive b
 		// Copilot: ~/.copilot/agents/ directory (this is already a directory, works with Apple container)
 		copilotAgents := filepath.Join(home, ".copilot", "agents")
 		if info, err := os.Stat(copilotAgents); err == nil && info.IsDir() {
-			args = append(args, "-v", copilotAgents+":/host-agent-instructions/copilot/agents:ro")
+			mountSrc := copilotAgents
+			if dirContainsSymlinks(copilotAgents) {
+				staged, err := stageDirResolvingSymlinks(copilotAgents)
+				if err != nil {
+					warn("Failed to resolve symlinks in %s: %s", copilotAgents, err)
+				} else {
+					mountSrc = staged
+				}
+			}
+			args = append(args, "-v", mountSrc+":/host-agent-instructions/copilot/agents:ro")
 		}
 	}
 
