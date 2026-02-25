@@ -77,6 +77,7 @@ type Config struct {
 	ReadonlyProject       bool     `toml:"readonly_project"`
 	NoNetwork             bool     `toml:"no_network"`
 	Network               string   `toml:"network"`
+	Pod                   string   `toml:"pod"`
 	NoYolo                bool     `toml:"no_yolo"`
 	Scratch               bool     `toml:"scratch"`
 	ClaudeConfig          bool     `toml:"claude_config"`
@@ -320,6 +321,7 @@ func printUsage() {
 	fmt.Fprintf(os.Stderr, "%sFLAGS:%s\n", colorBold, colorReset)
 	fmt.Fprintln(os.Stderr, "  --runtime <name>      Container runtime: docker, podman, or container")
 	fmt.Fprintln(os.Stderr, "  --image <name>        Base image to use")
+	fmt.Fprintln(os.Stderr, "  --pod <name>          Join existing Podman pod (shares its network)")
 	fmt.Fprintln(os.Stderr, "  --setup               Run interactive setup before starting")
 	fmt.Fprintln(os.Stderr, "  --mount <src:dst>     Extra mount (repeatable)")
 	fmt.Fprintln(os.Stderr, "  --env <KEY=val>       Set environment variable (repeatable)")
@@ -369,6 +371,7 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 	var (
 		runtimeFlag           string
 		imageFlag             string
+		podFlag               string
 		networkFlag           string
 		sshAgent              bool
 		readonlyProject       bool
@@ -388,6 +391,7 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 
 	fs.StringVar(&runtimeFlag, "runtime", "", "container runtime")
 	fs.StringVar(&imageFlag, "image", "", "container image")
+	fs.StringVar(&podFlag, "pod", "", "join existing podman pod")
 	fs.StringVar(&networkFlag, "network", "", "container network to join")
 	fs.BoolVar(&sshAgent, "ssh-agent", false, "mount SSH agent socket")
 	fs.BoolVar(&readonlyProject, "readonly-project", false, "mount project read-only")
@@ -417,6 +421,9 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 	}
 	if imageFlag != "" {
 		cfg.Image = imageFlag
+	}
+	if podFlag != "" {
+		cfg.Pod = podFlag
 	}
 	if sshAgent {
 		cfg.SSHAgent = true
@@ -470,6 +477,17 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 	}
 	if cfg.Docker && cfg.NoNetwork {
 		return cfg, nil, fmt.Errorf("cannot use --docker with --no-network")
+	}
+	if cfg.Pod != "" {
+		if cfg.Network != "" {
+			return cfg, nil, fmt.Errorf("cannot use --pod with --network")
+		}
+		if cfg.NoNetwork {
+			return cfg, nil, fmt.Errorf("cannot use --pod with --no-network")
+		}
+		if cfg.Docker {
+			return cfg, nil, fmt.Errorf("cannot use --pod with --docker")
+		}
 	}
 
 	return cfg, fs.Args(), nil
@@ -552,6 +570,9 @@ func mergeConfig(dst *Config, src Config) {
 	}
 	if src.Network != "" {
 		dst.Network = src.Network
+	}
+	if src.Pod != "" {
+		dst.Pod = src.Pod
 	}
 	if src.NoYolo {
 		dst.NoYolo = true
@@ -637,6 +658,16 @@ func runCommand(cfg Config, command []string, interactive bool) error {
 		}
 	}
 
+	if cfg.Pod != "" {
+		runtimePath, err := resolveRuntime(cfg.Runtime)
+		if err != nil {
+			return err
+		}
+		if filepath.Base(runtimePath) != "podman" {
+			return fmt.Errorf("--pod requires the podman runtime (set --runtime podman)")
+		}
+	}
+
 	// Warn if Docker has low memory (can cause OOM with Claude)
 	checkDockerMemory(cfg.Runtime)
 
@@ -670,6 +701,7 @@ func printConfig(cfg Config) error {
 	fmt.Printf("%sreadonly_project:%s %t\n", colorBold, colorReset, cfg.ReadonlyProject)
 	fmt.Printf("%sno_network:%s %t\n", colorBold, colorReset, cfg.NoNetwork)
 	fmt.Printf("%snetwork:%s %s\n", colorBold, colorReset, cfg.Network)
+	fmt.Printf("%spod:%s %s\n", colorBold, colorReset, cfg.Pod)
 	fmt.Printf("%sno_yolo:%s %t\n", colorBold, colorReset, cfg.NoYolo)
 	fmt.Printf("%sscratch:%s %t\n", colorBold, colorReset, cfg.Scratch)
 	fmt.Printf("%sclaude_config:%s %t\n", colorBold, colorReset, cfg.ClaudeConfig)
@@ -1435,10 +1467,14 @@ func buildRunArgs(cfg Config, projectDir string, command []string, interactive b
 	}
 
 	// Network configuration
-	if cfg.NoNetwork {
-		args = append(args, "--network", "none")
-	} else if cfg.Network != "" {
-		args = append(args, "--network", cfg.Network)
+	if cfg.Pod != "" {
+		args = append(args, "--pod", cfg.Pod)
+	} else {
+		if cfg.NoNetwork {
+			args = append(args, "--network", "none")
+		} else if cfg.Network != "" {
+			args = append(args, "--network", cfg.Network)
+		}
 	}
 
 	args = append(args, cfg.Image)
