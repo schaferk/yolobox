@@ -288,6 +288,10 @@ RUN mkdir -p /host-claude /host-gemini /host-git /host-agent-instructions /host-
     '# Ensure npm-global prefix dir exists (named volume may shadow /home/yolo)' \
     'mkdir -p /home/yolo/.npm-global' \
     '' \
+    '# Pin Claude to image version (named volume may contain an older install)' \
+    'mkdir -p /home/yolo/.local/bin' \
+    'ln -sf /usr/local/bin/claude /home/yolo/.local/bin/claude' \
+    '' \
     '# Auto-trust project directory for Claude Code (this is yolobox after all)' \
     'if [ -n "$YOLOBOX_PROJECT_PATH" ]; then' \
     '    CLAUDE_JSON="/home/yolo/.claude.json"' \
