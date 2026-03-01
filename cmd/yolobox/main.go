@@ -87,6 +87,32 @@ type Config struct {
 	CopyAgentInstructions bool     `toml:"copy_agent_instructions"`
 	Docker                bool     `toml:"docker"`
 
+	// Resource limits
+	CPUs              string   `toml:"cpus"`
+	CPUShares         string   `toml:"cpu_shares"`
+	CPUQuota          string   `toml:"cpu_quota"`
+	CPUPeriod         string   `toml:"cpu_period"`
+	CPUSetCPUs        string   `toml:"cpuset_cpus"`
+	CPUSetMems        string   `toml:"cpuset_mems"`
+	Memory            string   `toml:"memory"`
+	MemoryReservation string   `toml:"memory_reservation"`
+	MemorySwap        string   `toml:"memory_swap"`
+	MemorySwappiness  string   `toml:"memory_swappiness"`
+	PidsLimit         string   `toml:"pids_limit"`
+	ShmSize           string   `toml:"shm_size"`
+	OOMScoreAdj       string   `toml:"oom_score_adj"`
+	OOMKillDisable    bool     `toml:"oom_kill_disable"`
+	Ulimits           []string `toml:"ulimits"`
+
+	// Device & security options
+	Devices           []string `toml:"devices"`
+	DeviceCgroupRules []string `toml:"device_cgroup_rules"`
+	CapAdd            []string `toml:"cap_add"`
+	CapDrop           []string `toml:"cap_drop"`
+	SecurityOpts      []string `toml:"security_opt"`
+	Sysctls           []string `toml:"sysctls"`
+	GPUs              string   `toml:"gpus"`
+
 	// Runtime-only fields (not persisted to config file)
 	Setup bool `toml:"-"` // Run interactive setup before starting
 }
@@ -390,6 +416,32 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 		setup                 bool
 		mounts                stringSliceFlag
 		envVars               stringSliceFlag
+
+		// Resource limits
+		cpus              string
+		cpuShares         string
+		cpuQuota          string
+		cpuPeriod         string
+		cpuSetCPUs        string
+		cpuSetMems        string
+		memoryLimit       string
+		memoryReservation string
+		memorySwap        string
+		memorySwappiness  string
+		pidsLimit         string
+		shmSize           string
+		oomScoreAdj       string
+		oomKillDisable    bool
+		ulimits           stringSliceFlag
+
+		// Device & security
+		devices           stringSliceFlag
+		deviceCgroupRules stringSliceFlag
+		capAdd            stringSliceFlag
+		capDrop           stringSliceFlag
+		securityOpts      stringSliceFlag
+		sysctls           stringSliceFlag
+		gpus              string
 	)
 
 	fs.StringVar(&runtimeFlag, "runtime", "", "container runtime")
@@ -410,6 +462,32 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 	fs.BoolVar(&setup, "setup", false, "run interactive setup before starting")
 	fs.Var(&mounts, "mount", "extra mount src:dst")
 	fs.Var(&envVars, "env", "environment variable KEY=value")
+
+	// Resource limits
+	fs.StringVar(&cpus, "cpus", "", "limit number of CPUs (supports fractions)")
+	fs.StringVar(&cpuShares, "cpu-shares", "", "set CPU shares (relative weight)")
+	fs.StringVar(&cpuQuota, "cpu-quota", "", "limit CPU CFS quota")
+	fs.StringVar(&cpuPeriod, "cpu-period", "", "set CPU CFS period")
+	fs.StringVar(&cpuSetCPUs, "cpuset-cpus", "", "CPUs where execution is allowed (e.g., 0-3)")
+	fs.StringVar(&cpuSetMems, "cpuset-mems", "", "memory nodes for execution (NUMA)")
+	fs.StringVar(&memoryLimit, "memory", "", "memory limit (e.g., 8g)")
+	fs.StringVar(&memoryReservation, "memory-reservation", "", "memory soft limit")
+	fs.StringVar(&memorySwap, "memory-swap", "", "swap limit (memory + swap)")
+	fs.StringVar(&memorySwappiness, "memory-swappiness", "", "tune container memory swappiness (0-100)")
+	fs.StringVar(&pidsLimit, "pids-limit", "", "maximum number of processes")
+	fs.StringVar(&shmSize, "shm-size", "", "size of /dev/shm (e.g., 1g)")
+	fs.StringVar(&oomScoreAdj, "oom-score-adj", "", "adjust OOM score (-1000 to 1000)")
+	fs.BoolVar(&oomKillDisable, "oom-kill-disable", false, "disable OOM killer")
+	fs.Var(&ulimits, "ulimit", "set ulimit (repeatable)")
+
+	// Device & security
+	fs.Var(&devices, "device", "add host device inside the container (repeatable)")
+	fs.Var(&deviceCgroupRules, "device-cgroup-rule", "add device cgroup rule (repeatable)")
+	fs.Var(&capAdd, "cap-add", "add Linux capability (repeatable)")
+	fs.Var(&capDrop, "cap-drop", "drop Linux capability (repeatable)")
+	fs.Var(&securityOpts, "security-opt", "security options (repeatable)")
+	fs.Var(&sysctls, "sysctl", "sysctl settings (repeatable)")
+	fs.StringVar(&gpus, "gpus", "", "GPU devices to add (e.g., all or device IDs)")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -472,6 +550,74 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 	}
 	if len(envVars) > 0 {
 		cfg.Env = append(cfg.Env, envVars...)
+	}
+
+	if cpus != "" {
+		cfg.CPUs = cpus
+	}
+	if cpuShares != "" {
+		cfg.CPUShares = cpuShares
+	}
+	if cpuQuota != "" {
+		cfg.CPUQuota = cpuQuota
+	}
+	if cpuPeriod != "" {
+		cfg.CPUPeriod = cpuPeriod
+	}
+	if cpuSetCPUs != "" {
+		cfg.CPUSetCPUs = cpuSetCPUs
+	}
+	if cpuSetMems != "" {
+		cfg.CPUSetMems = cpuSetMems
+	}
+	if memoryLimit != "" {
+		cfg.Memory = memoryLimit
+	}
+	if memoryReservation != "" {
+		cfg.MemoryReservation = memoryReservation
+	}
+	if memorySwap != "" {
+		cfg.MemorySwap = memorySwap
+	}
+	if memorySwappiness != "" {
+		cfg.MemorySwappiness = memorySwappiness
+	}
+	if pidsLimit != "" {
+		cfg.PidsLimit = pidsLimit
+	}
+	if shmSize != "" {
+		cfg.ShmSize = shmSize
+	}
+	if oomScoreAdj != "" {
+		cfg.OOMScoreAdj = oomScoreAdj
+	}
+	if oomKillDisable {
+		cfg.OOMKillDisable = true
+	}
+	if len(ulimits) > 0 {
+		cfg.Ulimits = append(cfg.Ulimits, ulimits...)
+	}
+
+	if len(devices) > 0 {
+		cfg.Devices = append(cfg.Devices, devices...)
+	}
+	if len(deviceCgroupRules) > 0 {
+		cfg.DeviceCgroupRules = append(cfg.DeviceCgroupRules, deviceCgroupRules...)
+	}
+	if len(capAdd) > 0 {
+		cfg.CapAdd = append(cfg.CapAdd, capAdd...)
+	}
+	if len(capDrop) > 0 {
+		cfg.CapDrop = append(cfg.CapDrop, capDrop...)
+	}
+	if len(securityOpts) > 0 {
+		cfg.SecurityOpts = append(cfg.SecurityOpts, securityOpts...)
+	}
+	if len(sysctls) > 0 {
+		cfg.Sysctls = append(cfg.Sysctls, sysctls...)
+	}
+	if gpus != "" {
+		cfg.GPUs = gpus
 	}
 
 	// Validate conflicting options after config + CLI values have been merged.
@@ -623,6 +769,73 @@ func mergeConfig(dst *Config, src Config) {
 	if src.Docker {
 		dst.Docker = true
 	}
+
+	if src.CPUs != "" {
+		dst.CPUs = src.CPUs
+	}
+	if src.CPUShares != "" {
+		dst.CPUShares = src.CPUShares
+	}
+	if src.CPUQuota != "" {
+		dst.CPUQuota = src.CPUQuota
+	}
+	if src.CPUPeriod != "" {
+		dst.CPUPeriod = src.CPUPeriod
+	}
+	if src.CPUSetCPUs != "" {
+		dst.CPUSetCPUs = src.CPUSetCPUs
+	}
+	if src.CPUSetMems != "" {
+		dst.CPUSetMems = src.CPUSetMems
+	}
+	if src.Memory != "" {
+		dst.Memory = src.Memory
+	}
+	if src.MemoryReservation != "" {
+		dst.MemoryReservation = src.MemoryReservation
+	}
+	if src.MemorySwap != "" {
+		dst.MemorySwap = src.MemorySwap
+	}
+	if src.MemorySwappiness != "" {
+		dst.MemorySwappiness = src.MemorySwappiness
+	}
+	if src.PidsLimit != "" {
+		dst.PidsLimit = src.PidsLimit
+	}
+	if src.ShmSize != "" {
+		dst.ShmSize = src.ShmSize
+	}
+	if src.OOMScoreAdj != "" {
+		dst.OOMScoreAdj = src.OOMScoreAdj
+	}
+	if src.OOMKillDisable {
+		dst.OOMKillDisable = true
+	}
+	if len(src.Ulimits) > 0 {
+		dst.Ulimits = append([]string{}, src.Ulimits...)
+	}
+	if len(src.Devices) > 0 {
+		dst.Devices = append([]string{}, src.Devices...)
+	}
+	if len(src.DeviceCgroupRules) > 0 {
+		dst.DeviceCgroupRules = append([]string{}, src.DeviceCgroupRules...)
+	}
+	if len(src.CapAdd) > 0 {
+		dst.CapAdd = append([]string{}, src.CapAdd...)
+	}
+	if len(src.CapDrop) > 0 {
+		dst.CapDrop = append([]string{}, src.CapDrop...)
+	}
+	if len(src.SecurityOpts) > 0 {
+		dst.SecurityOpts = append([]string{}, src.SecurityOpts...)
+	}
+	if len(src.Sysctls) > 0 {
+		dst.Sysctls = append([]string{}, src.Sysctls...)
+	}
+	if src.GPUs != "" {
+		dst.GPUs = src.GPUs
+	}
 }
 
 func runShell(cfg Config) error {
@@ -735,6 +948,30 @@ func printConfig(cfg Config) error {
 	fmt.Printf("%sgh_token:%s %t\n", colorBold, colorReset, cfg.GhToken)
 	fmt.Printf("%scopy_agent_instructions:%s %t\n", colorBold, colorReset, cfg.CopyAgentInstructions)
 	fmt.Printf("%sdocker:%s %t\n", colorBold, colorReset, cfg.Docker)
+
+	printStringConfigField("cpus", cfg.CPUs)
+	printStringConfigField("cpu_shares", cfg.CPUShares)
+	printStringConfigField("cpu_quota", cfg.CPUQuota)
+	printStringConfigField("cpu_period", cfg.CPUPeriod)
+	printStringConfigField("cpuset_cpus", cfg.CPUSetCPUs)
+	printStringConfigField("cpuset_mems", cfg.CPUSetMems)
+	printStringConfigField("memory", cfg.Memory)
+	printStringConfigField("memory_reservation", cfg.MemoryReservation)
+	printStringConfigField("memory_swap", cfg.MemorySwap)
+	printStringConfigField("memory_swappiness", cfg.MemorySwappiness)
+	printStringConfigField("pids_limit", cfg.PidsLimit)
+	printStringConfigField("shm_size", cfg.ShmSize)
+	printStringConfigField("oom_score_adj", cfg.OOMScoreAdj)
+	fmt.Printf("%soom_kill_disable:%s %t\n", colorBold, colorReset, cfg.OOMKillDisable)
+	printSliceConfigField("ulimits", cfg.Ulimits)
+	printSliceConfigField("devices", cfg.Devices)
+	printSliceConfigField("device_cgroup_rules", cfg.DeviceCgroupRules)
+	printSliceConfigField("cap_add", cfg.CapAdd)
+	printSliceConfigField("cap_drop", cfg.CapDrop)
+	printSliceConfigField("security_opt", cfg.SecurityOpts)
+	printSliceConfigField("sysctls", cfg.Sysctls)
+	printStringConfigField("gpus", cfg.GPUs)
+
 	if len(cfg.Mounts) > 0 {
 		fmt.Printf("%smounts:%s\n", colorBold, colorReset)
 		for _, m := range cfg.Mounts {
@@ -748,6 +985,28 @@ func printConfig(cfg Config) error {
 		}
 	}
 	return nil
+}
+
+func printStringConfigField(name, value string) {
+	fmt.Printf("%s%s:%s %s\n", colorBold, name, colorReset, configValueOrNotSet(value))
+}
+
+func printSliceConfigField(name string, values []string) {
+	if len(values) == 0 {
+		fmt.Printf("%s%s:%s (none)\n", colorBold, name, colorReset)
+		return
+	}
+	fmt.Printf("%s%s:%s\n", colorBold, name, colorReset)
+	for _, v := range values {
+		fmt.Printf("  - %s\n", v)
+	}
+}
+
+func configValueOrNotSet(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "(not set)"
+	}
+	return value
 }
 
 // globalConfigExists checks if the global config file exists
@@ -969,11 +1228,22 @@ func splitToolArgs(args []string) (yoloboxArgs, toolArgs []string) {
 		"gemini-config": true, "git-config": true, "gh-token": true,
 		"copy-agent-instructions": true, "docker": true, "setup": true, "mount": true,
 		"env": true, "h": true, "help": true,
+		"cpus": true, "cpu-shares": true, "cpu-quota": true, "cpu-period": true,
+		"cpuset-cpus": true, "cpuset-mems": true, "memory": true, "memory-reservation": true,
+		"memory-swap": true, "memory-swappiness": true, "pids-limit": true, "shm-size": true,
+		"oom-score-adj": true, "oom-kill-disable": true, "ulimit": true, "device": true,
+		"device-cgroup-rule": true, "cap-add": true, "cap-drop": true, "security-opt": true,
+		"sysctl": true, "gpus": true,
 	}
 
 	flagsWithValues := map[string]bool{
 		"runtime": true, "image": true, "network": true, "pod": true,
-		"mount": true, "env": true,
+		"mount": true, "env": true, "cpus": true, "cpu-shares": true, "cpu-quota": true,
+		"cpu-period": true, "cpuset-cpus": true, "cpuset-mems": true, "memory": true,
+		"memory-reservation": true, "memory-swap": true, "memory-swappiness": true,
+		"pids-limit": true, "shm-size": true, "oom-score-adj": true, "ulimit": true,
+		"device": true, "device-cgroup-rule": true, "cap-add": true, "cap-drop": true,
+		"security-opt": true, "sysctl": true, "gpus": true,
 	}
 
 	i := 0
@@ -1349,6 +1619,13 @@ func ensureDockerNetwork(runtimeName string, networkName string) error {
 	return nil
 }
 
+func appendRunFlag(args []string, flagName, value string) []string {
+	if value == "" {
+		return args
+	}
+	return append(args, "--"+flagName, value)
+}
+
 func buildRunArgs(cfg Config, projectDir string, command []string, interactive bool) ([]string, []string, error) {
 	absProject, err := filepath.Abs(projectDir)
 	if err != nil {
@@ -1601,6 +1878,48 @@ func buildRunArgs(cfg Config, projectDir string, command []string, interactive b
 		}
 		args = append(args, "-v", resolved)
 	}
+
+	// Resource limits
+	args = appendRunFlag(args, "cpus", cfg.CPUs)
+	args = appendRunFlag(args, "cpu-shares", cfg.CPUShares)
+	args = appendRunFlag(args, "cpu-quota", cfg.CPUQuota)
+	args = appendRunFlag(args, "cpu-period", cfg.CPUPeriod)
+	args = appendRunFlag(args, "cpuset-cpus", cfg.CPUSetCPUs)
+	args = appendRunFlag(args, "cpuset-mems", cfg.CPUSetMems)
+	args = appendRunFlag(args, "memory", cfg.Memory)
+	args = appendRunFlag(args, "memory-reservation", cfg.MemoryReservation)
+	args = appendRunFlag(args, "memory-swap", cfg.MemorySwap)
+	args = appendRunFlag(args, "memory-swappiness", cfg.MemorySwappiness)
+	args = appendRunFlag(args, "pids-limit", cfg.PidsLimit)
+	args = appendRunFlag(args, "shm-size", cfg.ShmSize)
+	args = appendRunFlag(args, "oom-score-adj", cfg.OOMScoreAdj)
+	if cfg.OOMKillDisable {
+		args = append(args, "--oom-kill-disable")
+	}
+	for _, u := range cfg.Ulimits {
+		args = append(args, "--ulimit", u)
+	}
+
+	// Device & security controls
+	for _, d := range cfg.Devices {
+		args = append(args, "--device", d)
+	}
+	for _, r := range cfg.DeviceCgroupRules {
+		args = append(args, "--device-cgroup-rule", r)
+	}
+	for _, c := range cfg.CapAdd {
+		args = append(args, "--cap-add", c)
+	}
+	for _, c := range cfg.CapDrop {
+		args = append(args, "--cap-drop", c)
+	}
+	for _, o := range cfg.SecurityOpts {
+		args = append(args, "--security-opt", o)
+	}
+	for _, s := range cfg.Sysctls {
+		args = append(args, "--sysctl", s)
+	}
+	args = appendRunFlag(args, "gpus", cfg.GPUs)
 
 	// SSH agent forwarding
 	if cfg.SSHAgent {

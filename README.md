@@ -103,6 +103,30 @@ yolobox help                # Show help
 | `--gh-token` | Forward GitHub CLI token (extracts from keychain via `gh auth token`) |
 | `--copy-agent-instructions` | Copy global agent instruction files (see below) |
 | `--docker` | Mount Docker socket and join shared network (see below) |
+| `--cpus <num>` | Limit CPUs available to the container (accepts fractions like `3.5`) |
+| `--cpu-shares <value>` | Set relative CPU shares (default 1024) |
+| `--cpu-quota <value>` | Limit total CFS quota in microseconds |
+| `--cpu-period <value>` | Set the CFS period used with `--cpu-quota` |
+| `--cpuset-cpus <list>` | Pin workloads to specific CPUs (e.g., `0-3` or `0,2`) |
+| `--cpuset-mems <list>` | Restrict workloads to specific NUMA memory nodes |
+| `--memory <limit>` | Hard memory limit (e.g., `8g`, `1024m`) |
+| `--memory-reservation <limit>` | Soft memory reservation (container may burst above) |
+| `--memory-swap <limit>` | Total memory + swap (`-1` for unlimited) |
+| `--memory-swappiness <0-100>` | Tune kernel swappiness hint |
+| `--pids-limit <num>` | Maximum number of processes/threads |
+| `--shm-size <size>` | Size of `/dev/shm` tmpfs (useful for browsers/playwright) |
+| `--oom-score-adj <value>` | Adjust host OOM killer scoring (-1000 to 1000) |
+| `--oom-kill-disable` | Disable the kernel OOM killer for the container |
+| `--ulimit <spec>` | Set ulimit entries (repeatable, e.g., `nofile=1024:2048`) |
+| `--device <src:dest>` | Add host devices in the container (repeatable) |
+| `--device-cgroup-rule <rule>` | Fine-grained device cgroup rules (repeatable) |
+| `--cap-add <cap>` | Add Linux capabilities (repeatable) |
+| `--cap-drop <cap>` | Drop Linux capabilities (repeatable) |
+| `--security-opt <opt>` | Pass security options (seccomp/apparmor/etc.) |
+| `--sysctl <key=value>` | Apply sysctl overrides inside the container |
+| `--gpus <spec>` | Pass GPUs (Docker/Podman notation, e.g., `all`, `device=0`) |
+
+> **Resource & security controls:** These flags are passed directly to the underlying runtime. Docker and Podman support the full set above; Apple's `container` runtime ignores options it doesn't understand.
 
 > **SSH agent (macOS):** On macOS, `--ssh-agent` requires the Docker VM to forward the SSH agent. For **Colima**: edit `~/.colima/default/colima.yaml`, set `forwardAgent: true`, then restart (`colima stop && colima start`). **Docker Desktop** forwards the agent automatically.
 
@@ -124,6 +148,10 @@ docker = true
 no_network = true
 network = "my_compose_network"
 no_yolo = true
+cpus = "4"
+memory = "8g"
+cap_add = ["SYS_PTRACE"]
+devices = ["/dev/kvm:/dev/kvm"]
 ```
 
 You can also create `.yolobox.toml` in your project for project-specific settings:
@@ -132,6 +160,7 @@ You can also create `.yolobox.toml` in your project for project-specific setting
 mounts = ["../shared-libs:/libs:ro"]
 env = ["DEBUG=1"]
 no_network = true
+shm_size = "2g"
 ```
 
 Priority: CLI flags > project config > global config > defaults.
