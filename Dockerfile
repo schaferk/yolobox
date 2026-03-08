@@ -179,6 +179,7 @@ RUN printf '%s\n' \
     'usermod -u "$HOST_UID" -o yolo 2>/dev/null' \
     'groupmod -g "$HOST_GID" -o yolo 2>/dev/null' \
     'chown -R "$HOST_UID:$HOST_GID" /home/yolo 2>/dev/null' \
+    '[ -n "$YOLOBOX_SAVED_PATH" ] && export PATH="$YOLOBOX_SAVED_PATH" && unset YOLOBOX_SAVED_PATH' \
     'exec setpriv --reuid="$HOST_UID" --regid="$HOST_GID" --init-groups -- "$@"' \
     > /usr/local/bin/yolobox-uid-fix.sh && \
     chmod +x /usr/local/bin/yolobox-uid-fix.sh
@@ -192,6 +193,7 @@ RUN mkdir -p /host-claude /host-gemini /host-git /host-agent-instructions /host-
     '# Must run FIRST: after remapping, the named volume is owned by the new UID,' \
     '# so subsequent runs cannot access /home/yolo until the fix re-execs.' \
     'if [ -n "$YOLOBOX_HOST_UID" ] && [ "$YOLOBOX_HOST_UID" != "$(id -u)" ] && [ "$YOLOBOX_HOST_UID" != "0" ]; then' \
+    '    export YOLOBOX_SAVED_PATH="$PATH"' \
     '    exec sudo -E /usr/local/bin/yolobox-uid-fix.sh "$YOLOBOX_HOST_UID" "${YOLOBOX_HOST_GID:-$(id -g)}" -- "$0" "$@"' \
     'fi' \
     '' \
