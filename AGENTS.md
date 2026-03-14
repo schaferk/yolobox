@@ -87,3 +87,5 @@ Also update [README.md](README.md) when user-facing behavior changes.
 - Never `chmod` bind-mounted host sockets from inside the container. Fix access by matching the socket's group inside the container instead of mutating host permissions.
 - Setup defaults must come from global config only. Never seed a global-writing flow from merged project config, or repo-local settings will leak into every future run.
 - `yolobox upgrade` must not perform host-wide Docker cleanup. Pull the image you own; do not prune unrelated user images or caches as a side effect.
+- Version comparisons must be semantic, not lexical. Also stamp source-built binaries with a real version string, or update checks and support output become misleading.
+- `install.sh` runs under `set -euo pipefail`, so any best-effort network probe must explicitly tolerate failure. Otherwise the release lookup exits the script before the source-build fallback can run.

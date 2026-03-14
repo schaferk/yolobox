@@ -75,6 +75,7 @@ var toolShortcuts = []string{
 
 var sizePattern = regexp.MustCompile(`^\d+(?:\.\d+)?(?:[kKmMgGtTpP](?:i?[bB]?)?|[bB])?$`)
 var packageNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9.+\-:]*$`)
+var versionPattern = regexp.MustCompile(`^v?\d+\.\d+\.\d+`)
 
 type CustomizeConfig struct {
 	Packages   []string `toml:"packages"`
@@ -211,12 +212,57 @@ func doVersionCheck() {
 }
 
 func showUpdateMessage(latestVersion string) {
-	currentVersion := strings.TrimPrefix(Version, "v")
-	if latestVersion != "" && latestVersion != currentVersion && latestVersion > currentVersion {
+	if isNewerVersion(latestVersion, Version) {
 		fmt.Fprintf(os.Stderr, "\n%s💡 yolobox v%s available:%s https://github.com/finbarr/yolobox/releases/tag/v%s\n",
 			colorYellow, latestVersion, colorReset, latestVersion)
 		fmt.Fprintf(os.Stderr, "   Run %syolobox upgrade%s to update\n\n", colorBold, colorReset)
 	}
+}
+
+func comparableVersion(version string) string {
+	match := versionPattern.FindString(strings.TrimSpace(version))
+	if match == "" {
+		return ""
+	}
+	if strings.HasPrefix(match, "v") {
+		return match
+	}
+	return "v" + match
+}
+
+func isNewerVersion(latestVersion, currentVersion string) bool {
+	latest := comparableVersion(latestVersion)
+	if latest == "" {
+		return false
+	}
+	current := comparableVersion(currentVersion)
+	if current == "" {
+		return true
+	}
+	return compareSemver(latest, current) > 0
+}
+
+func compareSemver(a, b string) int {
+	parse := func(version string) [3]int {
+		version = strings.TrimPrefix(version, "v")
+		var parts [3]int
+		for i, part := range strings.SplitN(version, ".", 3) {
+			parts[i], _ = strconv.Atoi(part)
+		}
+		return parts
+	}
+
+	av := parse(a)
+	bv := parse(b)
+	for i := 0; i < len(av); i++ {
+		switch {
+		case av[i] > bv[i]:
+			return 1
+		case av[i] < bv[i]:
+			return -1
+		}
+	}
+	return 0
 }
 
 func main() {

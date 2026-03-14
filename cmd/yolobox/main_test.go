@@ -581,6 +581,45 @@ func TestStringSliceFlag(t *testing.T) {
 	}
 }
 
+func TestComparableVersion(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"v0.10.0", "v0.10.0"},
+		{"0.10.0", "v0.10.0"},
+		{"v0.10.0-9-gabcdef", "v0.10.0"},
+		{"dev", ""},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		if got := comparableVersion(tt.input); got != tt.want {
+			t.Errorf("comparableVersion(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestIsNewerVersion(t *testing.T) {
+	tests := []struct {
+		latest  string
+		current string
+		want    bool
+	}{
+		{"0.10.0", "0.9.4", true},
+		{"0.10.0", "v0.10.0-9-gabcdef", false},
+		{"0.10.0", "0.10.0", false},
+		{"0.10.0", "0.10.1", false},
+		{"0.10.0", "dev", true},
+	}
+
+	for _, tt := range tests {
+		if got := isNewerVersion(tt.latest, tt.current); got != tt.want {
+			t.Errorf("isNewerVersion(%q, %q) = %t, want %t", tt.latest, tt.current, got, tt.want)
+		}
+	}
+}
+
 func TestAutoPassthroughEnvVars(t *testing.T) {
 	// Check that common API keys are in the list
 	expected := []string{
