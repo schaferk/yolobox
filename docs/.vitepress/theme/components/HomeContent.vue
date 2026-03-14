@@ -1,5 +1,10 @@
 <template>
   <div class="home-content">
+    <section class="home-section masthead-section">
+      <div class="section-inner masthead-inner">
+        <AsciiLogo />
+      </div>
+    </section>
 
     <!-- ── Problem / Solution ── -->
     <section class="home-section comparison-section">
@@ -175,6 +180,8 @@
 </template>
 
 <script setup>
+import AsciiLogo from './AsciiLogo.vue'
+
 const agents = [
   { name: 'Claude Code', cmd: 'yolobox claude', expands: '--dangerously-skip-permissions' },
   { name: 'OpenAI Codex', cmd: 'yolobox codex', expands: '--dangerously-bypass-approvals-and-sandbox' },
@@ -237,6 +244,20 @@ const guides = [
 
 .home-section + .home-section {
   border-top: 1px solid var(--vp-c-divider);
+}
+
+.masthead-section {
+  padding-top: 56px;
+  padding-bottom: 8px;
+}
+
+.masthead-section + .home-section {
+  border-top: none;
+}
+
+.masthead-inner {
+  display: flex;
+  justify-content: flex-start;
 }
 
 .section-inner {
