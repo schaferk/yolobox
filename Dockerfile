@@ -300,14 +300,17 @@ RUN mkdir -p /host-claude /host-gemini /host-git /host-agent-instructions /host-
     '    echo -e "\033[33m→ Copying global agent instructions to container\033[0m" >&2' \
     'fi' \
     '' \
-    '# Handle Docker socket permissions (when --docker is used)' \
+    '# Handle Docker socket access without mutating host socket permissions' \
     'if [ -S /var/run/docker.sock ]; then' \
-    '    sudo chmod 666 /var/run/docker.sock' \
-    'fi' \
-    '' \
-    '# Handle SSH agent socket permissions (when --ssh-agent is used)' \
-    'if [ -S /ssh-agent ]; then' \
-    '    sudo chmod 777 /ssh-agent' \
+    '    DOCKER_GID=$(stat -c %g /var/run/docker.sock 2>/dev/null || true)' \
+    '    if [ -n "$DOCKER_GID" ] && ! id -G yolo | tr " " "\n" | grep -qx "$DOCKER_GID"; then' \
+    '        DOCKER_GROUP=$(getent group "$DOCKER_GID" | cut -d: -f1 | head -1)' \
+    '        if [ -z "$DOCKER_GROUP" ]; then' \
+    '            DOCKER_GROUP=yolobox-docker' \
+    '            sudo groupadd -g "$DOCKER_GID" "$DOCKER_GROUP" >/dev/null 2>&1 || true' \
+    '        fi' \
+    '        sudo usermod -aG "$DOCKER_GROUP" yolo >/dev/null 2>&1 || true' \
+    '    fi' \
     'fi' \
     '' \
     '# Ensure npm-global prefix dir exists (named volume may shadow /home/yolo)' \
