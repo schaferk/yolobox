@@ -375,6 +375,26 @@ func printVersion() {
 	fmt.Printf("%syolobox%s %s%s%s (%s/%s)\n", colorBold, colorReset, colorCyan, Version, colorReset, runtime.GOOS, runtime.GOARCH)
 }
 
+func wrapCommaList(items []string, maxWidth int) []string {
+	if len(items) == 0 {
+		return nil
+	}
+
+	var lines []string
+	current := items[0]
+	for _, item := range items[1:] {
+		candidate := current + ", " + item
+		if len(candidate) > maxWidth {
+			lines = append(lines, current)
+			current = item
+			continue
+		}
+		current = candidate
+	}
+	lines = append(lines, current)
+	return lines
+}
+
 func printUsage() {
 	fmt.Fprint(os.Stderr, colorCyan+logo+colorReset)
 	fmt.Fprintf(os.Stderr, "  %sFull-power AI agents, host-safe by default.%s\n\n", colorYellow, colorReset)
@@ -431,8 +451,9 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  Project: .yolobox.toml")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintf(os.Stderr, "%sAUTO-FORWARDED ENV VARS:%s\n", colorBold, colorReset)
-	fmt.Fprintln(os.Stderr, "  ANTHROPIC_API_KEY, OPENAI_API_KEY, COPILOT_GITHUB_TOKEN, GH_TOKEN, GITHUB_TOKEN")
-	fmt.Fprintln(os.Stderr, "  OPENROUTER_API_KEY, GEMINI_API_KEY, GEMINI_MODEL, GOOGLE_API_KEY")
+	for _, line := range wrapCommaList(autoPassthroughEnvVars, 76) {
+		fmt.Fprintf(os.Stderr, "  %s\n", line)
+	}
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintf(os.Stderr, "%sEXAMPLES:%s\n", colorBold, colorReset)
 	fmt.Fprintln(os.Stderr, "  yolobox                     # Drop into a shell")

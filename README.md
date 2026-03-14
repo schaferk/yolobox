@@ -217,6 +217,7 @@ You can also set `copy_agent_instructions = true` in your config file for persis
 
 These are automatically passed into the container if set:
 - `ANTHROPIC_API_KEY`
+- `CLAUDE_CODE_OAUTH_TOKEN`
 - `OPENAI_API_KEY`
 - `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` / `GITHUB_TOKEN`
 - `OPENROUTER_API_KEY`

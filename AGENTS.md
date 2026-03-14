@@ -89,3 +89,4 @@ Also update [README.md](README.md) when user-facing behavior changes.
 - `yolobox upgrade` must not perform host-wide Docker cleanup. Pull the image you own; do not prune unrelated user images or caches as a side effect.
 - Version comparisons must be semantic, not lexical. Also stamp source-built binaries with a real version string, or update checks and support output become misleading.
 - `install.sh` runs under `set -euo pipefail`, so any best-effort network probe must explicitly tolerate failure. Otherwise the release lookup exits the script before the source-build fallback can run.
+- Help text for auto-forwarded env vars must be generated from `autoPassthroughEnvVars`. Hardcoded copies drift and create auth debugging noise.

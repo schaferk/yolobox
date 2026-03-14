@@ -1,8 +1,10 @@
 package main
 
 import (
+	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -620,6 +622,14 @@ func TestIsNewerVersion(t *testing.T) {
 	}
 }
 
+func TestWrapCommaList(t *testing.T) {
+	lines := wrapCommaList([]string{"AAAA", "BBBB", "CCCC", "DDDD"}, 15)
+	want := []string{"AAAA, BBBB", "CCCC, DDDD"}
+	if !reflect.DeepEqual(lines, want) {
+		t.Fatalf("wrapCommaList() = %#v, want %#v", lines, want)
+	}
+}
+
 func TestAutoPassthroughEnvVars(t *testing.T) {
 	// Check that common API keys are in the list
 	expected := []string{
@@ -641,6 +651,36 @@ func TestAutoPassthroughEnvVars(t *testing.T) {
 		}
 		if !found {
 			t.Errorf("expected %s in autoPassthroughEnvVars", key)
+		}
+	}
+}
+
+func TestPrintUsageListsActualAutoPassthroughEnvVars(t *testing.T) {
+	oldStderr := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe() error = %v", err)
+	}
+	os.Stderr = w
+	printUsage()
+	_ = w.Close()
+	os.Stderr = oldStderr
+
+	output, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("io.ReadAll() error = %v", err)
+	}
+	_ = r.Close()
+
+	helpText := string(output)
+	for _, key := range autoPassthroughEnvVars {
+		if !strings.Contains(helpText, key) {
+			t.Errorf("expected help text to mention %s", key)
+		}
+	}
+	for _, unexpected := range []string{"GEMINI_MODEL", "GOOGLE_API_KEY"} {
+		if strings.Contains(helpText, unexpected) {
+			t.Errorf("did not expect help text to mention %s", unexpected)
 		}
 	}
 }
