@@ -13,7 +13,7 @@
   font-size: clamp(0.35rem, 1.15vw, 0.85rem);
   line-height: 1.2;
   color: var(--yolo-orange);
-  margin: 0 0 14px;
+  margin: 0 0 24px;
   white-space: pre;
   text-align: left;
   display: inline-block;

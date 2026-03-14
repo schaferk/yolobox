@@ -14,11 +14,6 @@
           One bad prompt away from
           <code class="danger-code">rm -rf ~</code>
         </h2>
-        <p class="section-desc">
-          AI coding agents are powerful when you let them run without guardrails.
-          But without isolation, a single misinterpreted prompt can nuke your home
-          directory, leak your SSH keys, or destroy your dotfiles.
-        </p>
         <div class="terminals-grid">
           <div class="terminal-col">
             <div class="terminal-label label-danger">Without a sandbox</div>
@@ -247,8 +242,8 @@ const guides = [
 }
 
 .masthead-section {
-  padding-top: 32px;
-  padding-bottom: 10px;
+  padding-top: 52px;
+  padding-bottom: 18px;
 }
 
 .masthead-section + .home-section {
