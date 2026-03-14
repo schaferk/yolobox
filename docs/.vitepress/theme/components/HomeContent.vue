@@ -25,10 +25,24 @@
           </div>
         </div>
         <div class="install-alt">
-          Or install with Go: <code>curl -fsSL https://raw.githubusercontent.com/finbarr/yolobox/master/install.sh | bash</code>
+          Or use the install script: <code>curl -fsSL https://raw.githubusercontent.com/finbarr/yolobox/master/install.sh | bash</code>
         </div>
         <div class="quickstart-cta">
           <a href="/getting-started" class="cta-docs">Read the docs</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="home-section guide-section">
+      <div class="section-inner">
+        <div class="section-label">Find the Right Page</div>
+        <h2 class="section-title">Start with the task you are trying to solve</h2>
+        <div class="guide-grid">
+          <a v-for="guide in guides" :key="guide.title" :href="guide.href" class="guide-card">
+            <div class="guide-kicker">{{ guide.kicker }}</div>
+            <h3>{{ guide.title }}</h3>
+            <p>{{ guide.copy }}</p>
+          </a>
         </div>
       </div>
     </section>
@@ -163,6 +177,45 @@ const agents = [
   { name: 'GitHub Copilot', cmd: 'yolobox copilot', expands: '--yolo' },
   { name: 'OpenCode', cmd: 'yolobox opencode', expands: 'runs natively' },
 ]
+
+const guides = [
+  {
+    kicker: 'Install',
+    title: 'Get running fast',
+    href: '/getting-started',
+    copy: 'Install yolobox, pick a runtime, and launch your first agent session.',
+  },
+  {
+    kicker: 'Customize',
+    title: 'Add packages per project',
+    href: '/customizing',
+    copy: 'Use packages or a Dockerfile fragment without taking on a permanent base-image fork.',
+  },
+  {
+    kicker: 'Configure',
+    title: 'Set your defaults',
+    href: '/configuration',
+    copy: 'Understand global config, project config, copied instructions, and forwarded credentials.',
+  },
+  {
+    kicker: 'Reference',
+    title: 'Find the exact flag',
+    href: '/flags',
+    copy: 'Look up runtime, network, Docker, resource, and customization flags by category.',
+  },
+  {
+    kicker: 'Security',
+    title: 'Understand the boundary',
+    href: '/security',
+    copy: 'See what yolobox protects, what it does not, and how to harden your setup further.',
+  },
+  {
+    kicker: 'Workflow',
+    title: 'Use the right command',
+    href: '/commands',
+    copy: 'Keep the AI shortcut workflow front and center, and use the shell and maintenance commands intentionally.',
+  },
+]
 </script>
 
 <style scoped>
@@ -212,6 +265,51 @@ const agents = [
   font-size: 1.05rem;
   max-width: 580px;
   line-height: 1.7;
+}
+
+.guide-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 32px;
+}
+
+.guide-card {
+  display: block;
+  padding: 22px;
+  border-radius: 16px;
+  text-decoration: none;
+  color: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.guide-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 140, 0, 0.35);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+}
+
+.guide-kicker {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--yolo-orange);
+  margin-bottom: 10px;
+}
+
+.guide-card h3 {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  color: var(--vp-c-text-1);
+}
+
+.guide-card p {
+  margin: 0;
+  color: var(--vp-c-text-2);
+  line-height: 1.6;
 }
 
 .danger-code {
@@ -473,6 +571,7 @@ const agents = [
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
+  .guide-grid,
   .terminals-grid {
     grid-template-columns: 1fr;
   }

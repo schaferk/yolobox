@@ -1,48 +1,83 @@
 # Commands
 
-## Philosophy: It's the AI's Box, Not Yours
+## Default workflow
 
-yolobox is designed for AI agents, not humans. You launch the AI and let it work. You're not meant to manually enter the box and set things up — the AI does that itself.
-
-The AI agent has full sudo access inside the container. If it needs a compiler, database, or framework — it just installs it. Named volumes persist these installations across sessions, so setup happens once. You point it at your project and let it cook.
-
-## Command Reference
+yolobox is built around AI shortcut commands:
 
 ```bash
-# AI tool shortcuts (recommended)
-yolobox claude              # Run Claude Code
-yolobox codex               # Run OpenAI Codex
-yolobox gemini              # Run Gemini CLI
-yolobox opencode            # Run OpenCode
-yolobox copilot             # Run GitHub Copilot
-
-# General commands
-yolobox                     # Drop into interactive shell
-yolobox run <cmd...>        # Run any command in sandbox
-yolobox setup               # Configure yolobox settings
-yolobox upgrade             # Update binary and pull latest image
-yolobox config              # Show resolved configuration
-yolobox reset --force       # Delete volumes (fresh start)
-yolobox version             # Show version
-yolobox help                # Show help
+yolobox claude
+yolobox codex
+yolobox gemini
+yolobox opencode
+yolobox copilot
 ```
 
-## Examples
+That is the intended path. You point the agent at a project and let it work inside the sandbox.
 
-Run Claude Code with Docker access and your git config:
+## Command reference
+
+### AI shortcuts
+
+```bash
+yolobox claude
+yolobox codex
+yolobox gemini
+yolobox opencode
+yolobox copilot
+```
+
+These launch the matching tool inside yolobox and apply the tool-specific YOLO-mode wrapper when one exists.
+
+### General commands
+
+```bash
+yolobox                     # Open an interactive shell
+yolobox run <cmd...>        # Run a single command in the sandbox
+yolobox setup               # Write global defaults to ~/.config/yolobox/config.toml
+yolobox config              # Print the resolved config for the current project
+yolobox upgrade             # Update the binary and pull the latest base image
+yolobox reset --force       # Remove yolobox named volumes
+yolobox uninstall --force   # Remove yolobox binary, image, and volumes
+yolobox version             # Print version and platform
+yolobox help                # Show CLI help
+```
+
+## Common examples
+
+### Start an agent with Docker access
 
 ```bash
 yolobox claude --docker --git-config --gh-token
 ```
 
-Run a command in a sandboxed, network-isolated environment:
+### Run one command in isolation
 
 ```bash
 yolobox run --no-network --readonly-project python3 untrusted_script.py
 ```
 
-Start fresh (wipe all persistent volumes):
+### Build with extra packages for one project
+
+```bash
+yolobox run --packages default-jdk,maven mvn --version
+```
+
+### Inspect the resolved configuration
+
+```bash
+yolobox config
+```
+
+### Reset persistent state
 
 ```bash
 yolobox reset --force
 ```
+
+## Mental model
+
+Use shortcut commands when you want an AI agent session.
+
+Use `run` when you want one exact command in the same sandbox model.
+
+Use the bare `yolobox` shell when you are debugging or exploring manually, not as the main path.

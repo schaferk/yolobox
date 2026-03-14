@@ -1,12 +1,14 @@
 # Configuration
 
-## Interactive Setup
+## Interactive setup
 
-Run `yolobox setup` to configure your preferences with an interactive wizard. Settings are saved to `~/.config/yolobox/config.toml`.
+Run `yolobox setup` to write global defaults to `~/.config/yolobox/config.toml`.
 
-## Config Files
+## Config files
 
-### Global config (`~/.config/yolobox/config.toml`)
+### Global config
+
+Path: `~/.config/yolobox/config.toml`
 
 Applies to all projects:
 
@@ -25,7 +27,9 @@ devices = ["/dev/kvm:/dev/kvm"]
 runtime_args = ["--security-opt", "seccomp=unconfined"]
 ```
 
-### Project config (`.yolobox.toml`)
+### Project config
+
+Path: `.yolobox.toml`
 
 Place in your project root for project-specific settings:
 
@@ -34,26 +38,40 @@ mounts = ["../shared-libs:/libs:ro"]
 env = ["DEBUG=1"]
 no_network = true
 shm_size = "2g"
+
+[customize]
+packages = ["default-jdk", "maven"]
 ```
 
 ### Precedence
 
-**CLI flags > project config > global config > defaults**
+CLI flags > project config > global config > defaults
 
-## Runtime Args Format
+## Customization config
+
+Project-level image customization lives under `[customize]`:
+
+```toml
+[customize]
+packages = ["default-jdk", "maven"]
+dockerfile = ".yolobox.Dockerfile"
+```
+
+Use `packages` for apt installs. Use `dockerfile` when you need extra build logic on top of that.
+
+## Runtime args format
 
 Each `runtime_args` entry is a single CLI argument. For flags that take a value, add them as separate entries:
 
 ```toml
-# --security-opt seccomp=unconfined becomes:
 runtime_args = ["--security-opt", "seccomp=unconfined"]
 ```
 
-## Global Agent Instructions {#global-agent-instructions}
+## Global agent instructions {#global-agent-instructions}
 
-The `--copy-agent-instructions` flag copies your global/user-level agent instruction files into the container. Useful when you have custom rules or preferences defined globally.
+The `--copy-agent-instructions` flag copies your global or user-level instruction files into the container.
 
-Files copied (if they exist on your host):
+Files copied if they exist on your host:
 
 | Tool | Source | Destination |
 |------|--------|-------------|
@@ -62,26 +80,25 @@ Files copied (if they exist on your host):
 | Codex | `~/.codex/AGENTS.md` | `/home/yolo/.codex/AGENTS.md` |
 | Copilot | `~/.copilot/agents/` | `/home/yolo/.copilot/agents/` |
 
-This only copies instruction files, not full configs (credentials, settings, history). For Claude's full config, use `--claude-config` instead.
+This copies instruction files, not full configs, credentials, settings, or history.
 
-Set `copy_agent_instructions = true` in your config file for persistent use.
+## Auto-forwarded environment variables
 
-## Auto-Forwarded Environment Variables
-
-These are automatically passed into the container if set on the host:
+These are automatically passed into the container if they are set on the host:
 
 - `ANTHROPIC_API_KEY`
+- `CLAUDE_CODE_OAUTH_TOKEN`
 - `OPENAI_API_KEY`
 - `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` / `GITHUB_TOKEN`
 - `OPENROUTER_API_KEY`
 - `GEMINI_API_KEY`
 
 ::: tip macOS and GitHub tokens
-On macOS, `gh` CLI stores tokens in Keychain, not environment variables. Use `--gh-token` (or `gh_token = true` in config) to extract and forward your GitHub CLI token.
+On macOS, `gh` stores tokens in Keychain, not environment variables. Use `--gh-token` or `gh_token = true` if you want yolobox to extract and forward the GitHub CLI token.
 :::
 
-## Config Sync Warning
+## Config sync warning
 
 ::: warning
-Setting `claude_config = true` or `gemini_config = true` in your config will copy your host config on **every** container start, overwriting any changes made inside the container (including auth and history). Prefer using `--claude-config` or `--gemini-config` as one-time flags.
+Setting `claude_config = true` or `gemini_config = true` in config copies your host config on every container start. That can overwrite changes made inside the container, including auth and history. Prefer `--claude-config` or `--gemini-config` for one-time syncs.
 :::

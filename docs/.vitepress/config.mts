@@ -19,31 +19,35 @@ export default defineConfig({
     siteTitle: 'yolobox',
 
     nav: [
-      { text: 'Docs', link: '/getting-started' },
+      { text: 'Get Started', link: '/getting-started' },
+      { text: 'Customize', link: '/customizing' },
+      { text: 'Reference', link: '/flags' },
       { text: 'Security', link: '/security' },
+      { text: 'GitHub', link: 'https://github.com/finbarr/yolobox' },
     ],
 
     sidebar: [
       {
-        text: 'Getting Started',
+        text: 'Start Here',
         items: [
+          { text: 'Overview', link: '/' },
           { text: 'Installation & Setup', link: '/getting-started' },
           { text: 'Commands', link: '/commands' },
           { text: "What's in the Box", link: '/whats-in-the-box' },
         ]
       },
       {
-        text: 'Reference',
+        text: 'Customize & Configure',
         items: [
-          { text: 'Flags', link: '/flags' },
+          { text: 'Project-Level Customization', link: '/customizing' },
           { text: 'Configuration', link: '/configuration' },
+          { text: 'Flags', link: '/flags' },
         ]
       },
       {
-        text: 'Advanced',
+        text: 'Safety & Project',
         items: [
           { text: 'Security Model', link: '/security' },
-          { text: 'Customizing the Image', link: '/customizing' },
           { text: 'Contributing', link: '/contributing' },
         ]
       }
@@ -65,6 +69,11 @@ export default defineConfig({
 
     search: {
       provider: 'local'
-    }
+    },
+
+    outline: {
+      level: [2, 3],
+      label: 'On this page'
+    },
   }
 })

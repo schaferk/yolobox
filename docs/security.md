@@ -1,90 +1,100 @@
 # Security Model
 
-## How It Works
+## How it works
 
-yolobox uses **container isolation** (Docker or Podman) as its security boundary. When you run `yolobox`, it:
+yolobox uses container isolation as its safety boundary. When you run it, yolobox:
 
-1. Starts a container with your project mounted at its real path
-2. Runs as user `yolo` with sudo access *inside* the container
-3. Does **not** mount your home directory (unless explicitly requested)
-4. Uses Linux namespaces to isolate the container's filesystem, process tree, and network
+1. starts a container with your project mounted at its real path
+2. runs as user `yolo` with sudo access inside the container
+3. keeps your home directory unmounted unless you explicitly opt in
+4. relies on the container runtime to isolate filesystem, process tree, and network
 
-The AI agent has full root access *inside the container*, but the container's view of the filesystem is restricted to what yolobox explicitly mounts.
+The AI has full root-equivalent power inside the container, but only over what the container can actually see.
 
-## Trust Boundary
+## Trust boundary
 
-**The trust boundary is the container runtime** (Docker/Podman). This means:
+The trust boundary is the container runtime itself.
 
-- :white_check_mark: Protection against accidental `rm -rf ~` or credential theft
-- :white_check_mark: Protection against most filesystem-based attacks
-- :warning: **Not** protection against container escapes — a sufficiently advanced exploit targeting kernel vulnerabilities could break out
-- :warning: **Not** protection against a malicious AI deliberately trying to escape — this is defense against accidents, not adversarial attacks
+That means yolobox is good at protecting against accidents like:
 
-If you're worried about an AI actively trying to escape containment, you need VM-level isolation (see [Hardening Options](#hardening) below).
+- deleting your home directory
+- reading your SSH keys by default
+- rummaging through unrelated projects
 
-## Threat Model
+It is not a promise against:
 
-### What yolobox protects
+- kernel exploits
+- container escape vulnerabilities
+- a deliberately hostile agent trying to break isolation
 
-- Your home directory from accidental deletion
-- Your SSH keys, credentials, and dotfiles
-- Other projects on your machine
-- Host system files and configurations
+If you are defending against hostile code rather than careless code, move up to stronger isolation.
 
-### What yolobox does NOT protect
+## What yolobox protects
 
-- Your project directory (it's mounted read-write by default; use `--readonly-project` to change this)
-- Network access (use `--no-network` to disable)
-- The container itself (the AI has root via sudo)
-- Against kernel exploits or container escape vulnerabilities
+- your home directory
+- your SSH keys, dotfiles, and usual workstation credentials
+- unrelated projects and most host filesystem state
+- the host from accidental destructive commands aimed at `~`
 
-## Hardening Options {#hardening}
+## What yolobox does not protect
 
-### Level 1: Basic (default)
+- your project directory, which is mounted read-write by default
+- network access unless you turn it off
+- the container's own filesystem and state
+- the host from runtime or kernel escape vulnerabilities
+
+## Important trust-expanding flags
+
+Some flags deliberately widen the trust boundary:
+
+- `--docker` mounts the host Docker socket into the container
+- `--claude-config`, `--gemini-config`, and `--git-config` copy selected host config into the container
+- `--mount`, `--device`, and `--runtime-arg` expose extra host paths, devices, and low-level runtime capabilities
+
+These are useful, but they are explicit trust decisions.
+
+## Hardening options
+
+### Level 1: default
 
 ```bash
 yolobox claude
 ```
 
-Standard container isolation. Good enough for most use cases.
+Good for protection from accidental damage.
 
-### Level 2: Reduced attack surface
+### Level 2: reduced attack surface
 
 ```bash
 yolobox claude --no-network --readonly-project
 ```
 
-No network access, read-only project. Outputs go to `/output`.
+Good when you want a tighter box for inspection or untrusted code.
 
-### Level 3: Rootless Podman
+### Level 3: rootless Podman
 
 ```bash
 yolobox claude --runtime podman
 ```
 
-Rootless Podman runs the container without root privileges on the host, using user namespaces. This significantly reduces the impact of container escapes since the container's "root" maps to your unprivileged user on the host.
+Rootless Podman maps container root to your unprivileged host user, which reduces the blast radius of runtime escapes.
 
-::: tip Recommended for security-conscious users
-Rootless Podman is the best balance of security and usability. No kernel-level attack surface from the container runtime, and no root daemon.
-:::
+### Level 4: VM isolation
 
-### Level 4: VM isolation (maximum security)
+Use a VM if you are worried about malicious-container risk rather than simple accidents.
 
-For true isolation with no shared kernel:
+- macOS: UTM, Parallels, Lima, or similar
+- Linux: a dedicated VM or Podman machine
 
-- **macOS**: Use a Linux VM via UTM, Parallels, or Lima
-- **Linux**: Use a Podman machine or dedicated VM
+## Podman network isolation
 
-This adds significant overhead but eliminates kernel-level attack surface.
+Rootless Podman commonly uses `slirp4netns`, which helps isolate containers from the host network while still allowing outbound internet access.
 
-## Network Isolation with Podman
+That makes rootless Podman a strong default if security matters more than convenience.
 
-For users who want to prevent container access to the local network while preserving internet access:
+## Quick recommendations
 
-```bash
-# Rootless podman uses slirp4netns by default, which provides
-# network isolation from the host network
-podman run --network=slirp4netns:allow_host_loopback=false ...
-```
-
-yolobox doesn't currently expose this as a flag, but you can achieve it by running rootless Podman (the default network mode for rootless is slirp4netns).
+- Use Docker or Podman defaults when your goal is protection from accidents.
+- Add `--no-network` and `--readonly-project` when you want a tighter box.
+- Use rootless Podman when you want stronger host hardening.
+- Use a VM when you care about hostile workloads, not just accidental damage.

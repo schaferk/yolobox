@@ -1,71 +1,102 @@
 # Flags
 
 ::: tip
-Flags go **after** the subcommand: `yolobox run --flag cmd` or `yolobox claude --flag`, not `yolobox --flag run cmd`.
+Flags go after the subcommand: `yolobox run --flag cmd` or `yolobox claude --flag`, not `yolobox --flag run cmd`.
 :::
 
-## Flag Reference
+## Runtime & image
 
 | Flag | Description |
 |------|-------------|
-| `--runtime <name>` | Use `docker`, `podman`, or `container` (Apple) |
-| `--image <name>` | Custom base image |
-| `--mount <src:dst>` | Extra mount (repeatable) |
-| `--env <KEY=val>` | Set environment variable (repeatable) |
+| `--runtime <name>` | Use `docker`, `podman`, or `container` |
+| `--image <name>` | Override the base image |
+| `--packages <list>` | Comma-separated apt packages for a derived custom image |
+| `--customize-file <path>` | Dockerfile fragment for a derived custom image |
+| `--rebuild-image` | Force rebuild of the derived custom image |
+
+## Filesystem, config, and identity
+
+| Flag | Description |
+|------|-------------|
+| `--mount <src:dst>` | Extra mount, repeatable |
+| `--env <KEY=val>` | Extra environment variable, repeatable |
 | `--setup` | Run interactive setup before starting |
 | `--ssh-agent` | Forward SSH agent socket |
+| `--readonly-project` | Mount the project read-only and write outputs to `/output` |
+| `--claude-config` | Copy host `~/.claude` config into the container |
+| `--gemini-config` | Copy host `~/.gemini` config into the container |
+| `--git-config` | Copy host `~/.gitconfig` into the container |
+| `--gh-token` | Forward GitHub CLI token from `gh auth token` |
+| `--copy-agent-instructions` | Copy global instruction files into the container |
+
+## Networking and behavior
+
+| Flag | Description |
+|------|-------------|
 | `--no-network` | Disable network access |
-| `--network <name>` | Join specific network (e.g., docker compose) |
-| `--pod <name>` | Join existing Podman pod (shares its network) |
-| `--no-yolo` | Disable auto-confirmations (mindful mode) |
-| `--scratch` | Start with a fresh home/cache (nothing persists) |
-| `--readonly-project` | Mount project read-only (outputs go to `/output`) |
-| `--claude-config` | Copy host `~/.claude` config into container |
-| `--gemini-config` | Copy host `~/.gemini` config into container |
-| `--git-config` | Copy host `~/.gitconfig` into container |
-| `--gh-token` | Forward GitHub CLI token (extracts from keychain via `gh auth token`) |
-| `--copy-agent-instructions` | Copy global agent instruction files ([details](/configuration#global-agent-instructions)) |
-| `--docker` | Mount Docker socket and join shared network ([details](#docker-access)) |
-| `--cpus <num>` | Limit CPUs (accepts fractions like `3.5`) |
-| `--memory <limit>` | Hard memory limit (e.g., `8g`, `1024m`) |
-| `--shm-size <size>` | Size of `/dev/shm` tmpfs (useful for browsers/playwright) |
-| `--gpus <spec>` | Pass GPUs (e.g., `all`, `device=0`) |
-| `--device <src:dest>` | Add host devices in the container (repeatable) |
-| `--cap-add <cap>` | Add Linux capabilities (repeatable) |
-| `--cap-drop <cap>` | Drop Linux capabilities (repeatable) |
-| `--runtime-arg <flag>` | Pass raw runtime flags directly to Docker/Podman (repeatable) |
+| `--network <name>` | Join a specific network |
+| `--pod <name>` | Join an existing Podman pod |
+| `--no-yolo` | Disable auto-confirmations |
+| `--scratch` | Start with a fresh home and cache |
+| `--docker` | Mount the Docker socket and join the shared `yolobox-net` network |
 
-## SSH Agent (macOS) {#ssh-agent}
+## Resources and low-level runtime control
 
-On macOS, `--ssh-agent` requires the Docker VM to forward the SSH agent:
+| Flag | Description |
+|------|-------------|
+| `--cpus <num>` | Limit CPUs, including fractional values like `3.5` |
+| `--memory <limit>` | Hard memory limit like `8g` or `1024m` |
+| `--shm-size <size>` | Size of `/dev/shm` |
+| `--gpus <spec>` | Pass GPUs, for example `all` or `device=0` |
+| `--device <src:dest>` | Add host devices, repeatable |
+| `--cap-add <cap>` | Add Linux capabilities, repeatable |
+| `--cap-drop <cap>` | Drop Linux capabilities, repeatable |
+| `--runtime-arg <flag>` | Pass raw runtime flags directly to Docker or Podman |
 
-- **Docker Desktop**: forwards the agent automatically.
-- **Colima**: edit `~/.colima/default/colima.yaml`, set `forwardAgent: true`, then restart (`colima stop && colima start`).
+## SSH agent on macOS
 
-## Networking {#networking}
+On macOS, `--ssh-agent` depends on the VM forwarding the agent:
 
-By default, yolobox uses Docker's bridge network (internet access, no container DNS).
+- Docker Desktop forwards it automatically
+- Colima needs `forwardAgent: true` in `~/.colima/default/colima.yaml`, then a restart
 
-- `--network <name>` — join a docker compose network and access services by name.
-- `--no-network` — complete network isolation (no internet, no LAN).
+## Networking
 
-## Docker Access {#docker-access}
+By default, yolobox uses the runtime's normal bridged network.
 
-The `--docker` flag mounts the host Docker socket into the container and joins a shared `yolobox-net` network. This lets the AI agent:
+- use `--network <name>` when you need container-name DNS on a compose network
+- use `--no-network` when you want complete network isolation
 
-- Run Docker commands (build images, start containers, use docker compose)
-- Create sibling containers on the same network
-- Communicate with services by container name
+## Docker access {#docker-access}
+
+The `--docker` flag mounts the host Docker socket into the container and joins a shared `yolobox-net` network. That lets the agent:
+
+- run Docker commands
+- build images
+- start sibling containers
+- communicate with services by container name on the shared network
 
 The network name is available inside the container as `$YOLOBOX_NETWORK`.
 
 ::: warning
-`--docker` cannot be used with `--no-network`.
+`--docker` cannot be combined with `--no-network`.
 :::
 
-## Resource & Security Controls {#advanced}
+## Derived image customization
 
-The flags table covers the common knobs baked into yolobox. Anything else (e.g., `--ulimit nofile=4096:8192`, `--security-opt seccomp=unconfined`) can be forwarded verbatim with `--runtime-arg`:
+These flags map to the same model described in [Project-Level Customization](/customizing):
+
+```bash
+yolobox run --packages default-jdk,maven mvn --version
+yolobox run --customize-file .yolobox.Dockerfile bash
+yolobox run --packages default-jdk --rebuild-image java --version
+```
+
+Use them when you want a one-off customization without writing config first.
+
+## Raw runtime passthrough {#advanced}
+
+Anything not covered by a dedicated flag can still be forwarded with `--runtime-arg`:
 
 ```bash
 yolobox run \
@@ -76,4 +107,4 @@ yolobox run \
   claude
 ```
 
-Docker and Podman accept these flags unchanged. Apple's `container` runtime ignores options it doesn't understand.
+Docker and Podman accept these passthrough flags unchanged. Apple's `container` runtime ignores options it does not understand.

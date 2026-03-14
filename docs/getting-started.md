@@ -1,63 +1,87 @@
 # Installation & Setup
 
-## Install
+## What yolobox does
 
-### Homebrew (macOS/Linux)
+yolobox runs an AI coding agent inside a container where:
 
-```bash
-brew install finbarr/tap/yolobox
-```
+- your project is mounted at its real path
+- the agent has full permissions and sudo inside the box
+- your home directory is not mounted unless you explicitly opt in
+- named volumes preserve tools and session state across runs
 
-### Install script (requires Go)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/finbarr/yolobox/master/install.sh | bash
-```
-
-## Your First Run
+The default workflow is simple:
 
 ```bash
 cd /path/to/your/project
 yolobox claude
 ```
 
-That's it. yolobox launches Claude Code inside a container with your project mounted. The AI has full permissions inside the sandbox — your home directory is never exposed.
+Use `claude`, `codex`, `gemini`, `opencode`, or `copilot` depending on the tool you want to run.
 
-You can also use any other AI tool:
+## Install
 
-```bash
-yolobox codex     # OpenAI Codex
-yolobox gemini    # Gemini CLI
-yolobox opencode  # OpenCode
-yolobox copilot   # GitHub Copilot
-```
-
-Or drop into a shell for manual use:
+### Homebrew
 
 ```bash
-yolobox           # Interactive shell
-yolobox run echo "hello"   # Run any command
+brew install finbarr/tap/yolobox
 ```
 
-## Runtime Support
+### Install script
 
-yolobox supports multiple container runtimes and auto-detects what's available:
+```bash
+curl -fsSL https://raw.githubusercontent.com/finbarr/yolobox/master/install.sh | bash
+```
 
-| Platform | Supported Runtimes |
+The install script downloads a release binary when one is available for your platform. If it cannot, it falls back to building from source.
+
+## First run
+
+Start from any project:
+
+```bash
+cd /path/to/your/project
+yolobox claude
+```
+
+Other common entry points:
+
+```bash
+yolobox codex
+yolobox gemini
+yolobox copilot
+yolobox run make test
+yolobox
+```
+
+Use `yolobox` by itself when you want a shell. Use `yolobox run ...` when you want one command. Use the AI shortcuts when you want the intended workflow.
+
+## Runtime support
+
+yolobox auto-detects the first supported runtime it can use.
+
+| Platform | Supported runtimes |
 |---|---|
-| **macOS** | Docker Desktop, OrbStack, Colima, Apple container (macOS Tahoe+) |
-| **Linux** | Docker, Podman |
+| macOS | Docker Desktop, OrbStack, Colima, Apple container (macOS Tahoe+) |
+| Linux | Docker, Podman |
 
-To use a specific runtime:
+Force a runtime explicitly:
 
 ```bash
-yolobox claude --runtime container   # Apple container
-yolobox claude --runtime docker      # Docker
-yolobox claude --runtime podman      # Podman
+yolobox claude --runtime docker
+yolobox claude --runtime podman
+yolobox claude --runtime container
 ```
 
-::: warning Memory Requirements
-Claude Code needs **4GB+ RAM** allocated to Docker. Colima defaults to 2GB which will cause OOM kills. Increase with:
+## Next pages
+
+- [Commands](/commands): shortcut commands, shell usage, and maintenance commands
+- [What's in the Box](/whats-in-the-box): preinstalled tools and YOLO-mode wrappers
+- [Project-Level Customization](/customizing): add packages or a Dockerfile fragment per project
+- [Configuration](/configuration): global defaults, project config, copied instructions, and auto-forwarded env vars
+
+::: warning Memory requirements
+Claude Code needs at least 4 GB of RAM allocated to Docker. Colima defaults to 2 GB, which often leads to OOM kills.
+
 ```bash
 colima stop && colima start --memory 8
 ```
