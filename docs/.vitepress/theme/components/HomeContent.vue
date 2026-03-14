@@ -11,7 +11,7 @@
       <div class="section-inner">
         <div class="section-label">The Problem</div>
         <h2 class="section-title">
-          One bad prompt away from
+          You're one bad prompt away from
           <code class="danger-code">rm -rf ~</code>
         </h2>
         <div class="terminals-grid">
