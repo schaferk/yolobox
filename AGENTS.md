@@ -94,3 +94,4 @@ Also update [README.md](README.md) when user-facing behavior changes.
 - Codex trust is separate from execution mode. `--ask-for-approval never` plus `--sandbox danger-full-access` still shows the trust prompt for a new directory, so verify trusted-project startup separately when changing Codex launch flags.
 - Any `sudo` re-exec path in the entrypoint must preserve `PATH` (for example `--preserve-env=PATH`) or `/opt/yolobox/bin` wrappers get bypassed and AI CLIs lose pinned yolo flags.
 - Avoid parallel Git commands in this repo while another Git operation is active. We have repeatedly hit misleading `.git/index.lock` failures from overlapping status/checkout/rebase calls.
+- For the VitePress docs site, stop the live dev container before running `npm run docs:build`. The dev server and build both write `docs/.vitepress/dist`, and the shared bind mount causes flaky build conflicts if both are active.
