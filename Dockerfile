@@ -310,6 +310,7 @@ RUN mkdir -p /host-claude /host-gemini /host-git /host-agent-instructions /host-
     '            sudo groupadd -g "$DOCKER_GID" "$DOCKER_GROUP" >/dev/null 2>&1 || true' \
     '        fi' \
     '        sudo usermod -aG "$DOCKER_GROUP" yolo >/dev/null 2>&1 || true' \
+    '        _YOLOBOX_NEED_REGROUP=1' \
     '    fi' \
     'fi' \
     '' \
@@ -333,6 +334,10 @@ RUN mkdir -p /host-claude /host-gemini /host-git /host-agent-instructions /host-
     '    fi' \
     'fi' \
     '' \
+    '# Re-exec with refreshed groups if we added docker group above' \
+    'if [ "$_YOLOBOX_NEED_REGROUP" = "1" ]; then' \
+    '    exec sudo -E setpriv --reuid="$(id -u)" --regid="$(id -g)" --init-groups -- "$@"' \
+    'fi' \
     'exec "$@"' \
     > /usr/local/bin/yolobox-entrypoint.sh && \
     chmod +x /usr/local/bin/yolobox-entrypoint.sh
