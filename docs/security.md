@@ -43,6 +43,8 @@ If you are defending against hostile code rather than careless code, move up to 
 - the container's own filesystem and state
 - the host from runtime or kernel escape vulnerabilities
 
+If you want to narrow the container's view of the project itself, use `--exclude` and `--copy-as` to hide or replace selected files before the agent sees them.
+
 ## Important trust-expanding flags
 
 Some flags deliberately widen the trust boundary:
@@ -66,7 +68,7 @@ Good for protection from accidental damage.
 ### Level 2: reduced attack surface
 
 ```bash
-yolobox claude --no-network --readonly-project
+yolobox claude --no-network --readonly-project --exclude ".env*" --exclude "secrets/**"
 ```
 
 Good when you want a tighter box for inspection or untrusted code.

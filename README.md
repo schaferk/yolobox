@@ -194,6 +194,9 @@ You can also create `.yolobox.toml` in your project for project-specific setting
 ```toml
 mounts = ["../shared-libs:/libs:ro"]
 env = ["DEBUG=1"]
+readonly_project = true
+exclude = [".env*", "secrets/**"]
+copy_as = [".env.sandbox:.env"]
 no_network = true
 shm_size = "2g"
 ```
@@ -203,6 +206,26 @@ Priority: CLI flags > project config > global config > defaults.
 Each `runtime_args` entry is a single CLI argument. For flags that take a value, add them as separate entries so `--security-opt seccomp=unconfined` becomes `["--security-opt", "seccomp=unconfined"]`.
 
 > **Note:** Setting `claude_config = true` or `gemini_config = true` in your config will copy your host config on **every** container start, overwriting any changes made inside the container (including auth and history). Prefer using `--claude-config` or `--gemini-config` for one-time syncs.
+
+### Project File Filtering
+
+Use `--exclude` to hide matching project paths from the container by staging an empty readonly project view:
+
+```bash
+yolobox claude --readonly-project --exclude ".env*" --exclude "secrets/**"
+```
+
+Use `--copy-as` to copy one file into another project path inside that staged readonly view:
+
+```bash
+yolobox claude --readonly-project --exclude ".env*" --copy-as ".env.sandbox:.env"
+```
+
+- `exclude` patterns are relative to the project root and support `**`
+- `copy_as` destinations must stay inside the project and must already exist as files
+- `copy_as` wins if it targets the same path as an `exclude`
+- `--exclude` and `--copy-as` currently require `--readonly-project`
+- `--exclude` and `--copy-as` are currently supported on Docker and Podman, not Apple's `container` runtime
 
 ### Copying Global Agent Instructions
 
@@ -242,6 +265,8 @@ These are automatically passed into the container if set:
 | `--runtime <name>` | Use `docker`, `podman`, or `container` (Apple) |
 | `--image <name>` | Custom base image |
 | `--mount <src:dst>` | Extra mount (repeatable) |
+| `--exclude <glob>` | Hide matching project paths from the container (repeatable) |
+| `--copy-as <src:dst>` | Mount a file at another project path inside the container (repeatable) |
 | `--env <KEY=val>` | Set environment variable (repeatable) |
 | `--setup` | Run interactive setup before starting |
 | `--ssh-agent` | Forward SSH agent socket |
@@ -276,6 +301,8 @@ These are automatically passed into the container if set:
 > **Networking:** By default, yolobox uses Docker's bridge network (internet access, no container DNS). Use `--network <name>` to join a docker compose network and access services by name. Use `--no-network` for complete isolation.
 
 > **Docker access:** The `--docker` flag mounts the host Docker socket into the container and joins a shared `yolobox-net` network. This lets the AI agent run Docker commands (build images, start containers, use docker compose) that create sibling containers on the same network. The agent and any services it creates can communicate by container name. The network name is available inside the container as `$YOLOBOX_NETWORK`. Cannot be used with `--no-network`.
+
+> **Project filtering:** `--exclude` globs are evaluated relative to the project root. `--copy-as` destinations must already exist as files in the project. Both flags currently require `--readonly-project`. Apple's `container` runtime does not support them yet.
 
 ## Philosophy: It's the AI's Box, Not Yours
 
@@ -328,6 +355,8 @@ If you're worried about an AI actively trying to escape containment, you need VM
 - The container itself (the AI has root via sudo)
 - Against kernel exploits or container escape vulnerabilities
 
+If you want a narrower view of the project, use `--exclude` and `--copy-as` to hide or replace selected files before the agent sees them.
+
 ### Hardening Options
 
 **Level 1: Basic (default)**
@@ -337,7 +366,7 @@ yolobox  # Standard container isolation
 
 **Level 2: Reduced attack surface**
 ```bash
-yolobox run --no-network --readonly-project claude
+yolobox claude --no-network --readonly-project --exclude ".env*" --exclude "secrets/**"
 ```
 
 **Level 3: Rootless Podman** (recommended for security-conscious users)

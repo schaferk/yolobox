@@ -70,6 +70,19 @@ func TestMergeConfigCustomize(t *testing.T) {
 	}
 }
 
+func TestMergeConfigProjectFiltering(t *testing.T) {
+	dst := Config{}
+	src := Config{
+		Exclude: []string{".env*", "secrets/**"},
+		CopyAs:  []string{".env.sandbox:.env"},
+	}
+
+	mergeConfig(&dst, src)
+
+	expectSliceEqual(t, dst.Exclude, []string{".env*", "secrets/**"})
+	expectSliceEqual(t, dst.CopyAs, []string{".env.sandbox:.env"})
+}
+
 func TestLoadSetupDefaultsIgnoresProjectConfig(t *testing.T) {
 	projectDir := t.TempDir()
 	configHome := t.TempDir()
@@ -178,6 +191,30 @@ func TestResolveMountInvalid(t *testing.T) {
 	_, err := resolveMount("no-colon", "/project")
 	if err == nil {
 		t.Error("expected error for invalid mount")
+	}
+}
+
+func TestMatchProjectPattern(t *testing.T) {
+	tests := []struct {
+		pattern string
+		rel     string
+		want    bool
+	}{
+		{pattern: ".env*", rel: ".env", want: true},
+		{pattern: ".env*", rel: "config/.env", want: false},
+		{pattern: "secrets/**", rel: "secrets", want: true},
+		{pattern: "secrets/**", rel: "secrets/nested/token.txt", want: true},
+		{pattern: "**/*.pem", rel: "certs/dev/key.pem", want: true},
+		{pattern: "**/*.pem", rel: "certs/dev/key.txt", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.pattern+"::"+tt.rel, func(t *testing.T) {
+			got := matchProjectPattern(tt.pattern, tt.rel)
+			if got != tt.want {
+				t.Fatalf("matchProjectPattern(%q, %q) = %t, want %t", tt.pattern, tt.rel, got, tt.want)
+			}
+		})
 	}
 }
 
@@ -378,6 +415,127 @@ func TestBuildRunArgsReadonlyProject(t *testing.T) {
 	}
 }
 
+func TestBuildRunArgsProjectFiltering(t *testing.T) {
+	projectDir := t.TempDir()
+	envPath := filepath.Join(projectDir, ".env")
+	sandboxPath := filepath.Join(projectDir, ".env.sandbox")
+	secretsDir := filepath.Join(projectDir, "secrets")
+
+	if err := os.WriteFile(envPath, []byte("REAL=1\n"), 0644); err != nil {
+		t.Fatalf("failed to write %s: %v", envPath, err)
+	}
+	if err := os.WriteFile(sandboxPath, []byte("SANDBOX=1\n"), 0644); err != nil {
+		t.Fatalf("failed to write %s: %v", sandboxPath, err)
+	}
+	if err := os.MkdirAll(secretsDir, 0755); err != nil {
+		t.Fatalf("failed to create secrets dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(secretsDir, "token.txt"), []byte("secret"), 0644); err != nil {
+		t.Fatalf("failed to write secret file: %v", err)
+	}
+
+	cfg := Config{
+		Image:           "test-image",
+		ReadonlyProject: true,
+		Exclude:         []string{".env*", "secrets/**"},
+		CopyAs:          []string{".env.sandbox:.env"},
+	}
+
+	args, cleanupPaths, err := buildRunArgs(cfg, projectDir, []string{"bash"}, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cleanupPaths) == 0 {
+		t.Fatal("expected cleanup paths for staged filtered project view")
+	}
+	viewRoot := cleanupPaths[0]
+
+	argsStr := strings.Join(args, " ")
+	if !strings.Contains(argsStr, viewRoot+":"+projectDir+":ro") {
+		t.Fatalf("expected filtered project root mount from %s to %s, got %s", viewRoot, projectDir, argsStr)
+	}
+	if strings.Contains(argsStr, sandboxPath+":"+envPath) {
+		t.Fatalf("did not expect nested copy-as mount in filtered readonly mode, got %s", argsStr)
+	}
+	if placeholder, err := os.ReadFile(filepath.Join(viewRoot, ".env.sandbox")); err != nil {
+		t.Fatalf("expected excluded sandbox placeholder file: %v", err)
+	} else if len(placeholder) != 0 {
+		t.Fatalf("expected excluded sandbox placeholder to be empty, got %q", string(placeholder))
+	}
+	if entries, err := os.ReadDir(filepath.Join(viewRoot, "secrets")); err != nil {
+		t.Fatalf("expected excluded secrets placeholder dir: %v", err)
+	} else if len(entries) != 0 {
+		t.Fatalf("expected excluded secrets placeholder dir to be empty, got %d entries", len(entries))
+	}
+	if replacement, err := os.ReadFile(filepath.Join(viewRoot, ".env")); err != nil {
+		t.Fatalf("expected copy-as destination in filtered view: %v", err)
+	} else if string(replacement) != "SANDBOX=1\n" {
+		t.Fatalf("expected copied replacement contents, got %q", string(replacement))
+	}
+}
+
+func TestBuildRunArgsProjectFilteringReadonlyProject(t *testing.T) {
+	projectDir := t.TempDir()
+	envPath := filepath.Join(projectDir, ".env")
+	sandboxPath := filepath.Join(projectDir, ".env.sandbox")
+
+	if err := os.WriteFile(envPath, []byte("REAL=1\n"), 0644); err != nil {
+		t.Fatalf("failed to write %s: %v", envPath, err)
+	}
+	if err := os.WriteFile(sandboxPath, []byte("SANDBOX=1\n"), 0644); err != nil {
+		t.Fatalf("failed to write %s: %v", sandboxPath, err)
+	}
+
+	cfg := Config{
+		Image:           "test-image",
+		ReadonlyProject: true,
+		CopyAs:          []string{".env.sandbox:.env"},
+	}
+
+	args, cleanupPaths, err := buildRunArgs(cfg, projectDir, []string{"bash"}, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	argsStr := strings.Join(args, " ")
+	if len(cleanupPaths) == 0 {
+		t.Fatal("expected staged readonly project view")
+	}
+	viewRoot := cleanupPaths[0]
+	if !strings.Contains(argsStr, viewRoot+":"+projectDir+":ro") {
+		t.Fatalf("expected readonly staged project mount, got %s", argsStr)
+	}
+	if replacement, err := os.ReadFile(filepath.Join(viewRoot, ".env")); err != nil {
+		t.Fatalf("expected copied replacement file: %v", err)
+	} else if string(replacement) != "SANDBOX=1\n" {
+		t.Fatalf("unexpected replacement contents: %q", string(replacement))
+	}
+}
+
+func TestBuildRunArgsProjectFilteringAppleRuntimeUnsupported(t *testing.T) {
+	projectDir := t.TempDir()
+	runtimeDir := t.TempDir()
+	containerPath := filepath.Join(runtimeDir, "container")
+	if err := os.WriteFile(containerPath, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatalf("failed to write fake container runtime: %v", err)
+	}
+	t.Setenv("PATH", runtimeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	cfg := Config{
+		Runtime: "container",
+		Image:   "test-image",
+		Exclude: []string{".env*"},
+	}
+
+	_, _, err := buildRunArgs(cfg, projectDir, []string{"bash"}, false)
+	if err == nil {
+		t.Fatal("expected Apple container runtime to reject file filtering")
+	}
+	if !strings.Contains(err.Error(), "not supported with Apple container runtime") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestBuildRunArgsNonInteractive(t *testing.T) {
 	cfg := Config{
 		Image: "test-image",
@@ -552,6 +710,60 @@ func TestParseFlagsCustomizeInvalidPackage(t *testing.T) {
 	_, _, err := parseBaseFlags("run", []string{"--packages", "default-jdk,$(evil)", "java"}, t.TempDir())
 	if err == nil {
 		t.Fatal("expected invalid package name error")
+	}
+}
+
+func TestParseFlagsProjectFiltering(t *testing.T) {
+	projectDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(projectDir, ".env"), []byte("REAL=1\n"), 0644); err != nil {
+		t.Fatalf("failed to write .env: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(projectDir, ".env.sandbox"), []byte("SANDBOX=1\n"), 0644); err != nil {
+		t.Fatalf("failed to write .env.sandbox: %v", err)
+	}
+
+	cfg, rest, err := parseBaseFlags("run", []string{
+		"--readonly-project",
+		"--exclude", ".env*",
+		"--copy-as", ".env.sandbox:.env",
+		"env",
+	}, projectDir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expectSliceEqual(t, cfg.Exclude, []string{".env*"})
+	expectSliceEqual(t, cfg.CopyAs, []string{".env.sandbox:.env"})
+	expectSliceEqual(t, rest, []string{"env"})
+}
+
+func TestParseFlagsProjectFilteringRejectsMissingCopyAsDestination(t *testing.T) {
+	projectDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(projectDir, ".env.sandbox"), []byte("SANDBOX=1\n"), 0644); err != nil {
+		t.Fatalf("failed to write .env.sandbox: %v", err)
+	}
+
+	_, _, err := parseBaseFlags("run", []string{"--readonly-project", "--copy-as", ".env.sandbox:.env", "env"}, projectDir)
+	if err == nil {
+		t.Fatal("expected missing copy-as destination to fail")
+	}
+	if !strings.Contains(err.Error(), "must already exist as a file") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestParseFlagsProjectFilteringRequiresReadonlyProject(t *testing.T) {
+	projectDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(projectDir, ".env"), []byte("REAL=1\n"), 0644); err != nil {
+		t.Fatalf("failed to write .env: %v", err)
+	}
+
+	_, _, err := parseBaseFlags("run", []string{"--exclude", ".env*", "env"}, projectDir)
+	if err == nil {
+		t.Fatal("expected readonly-project requirement to fail")
+	}
+	if !strings.Contains(err.Error(), "require --readonly-project") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -1076,6 +1288,12 @@ func TestSplitToolArgs(t *testing.T) {
 			name:        "yolobox flag with equals then tool flag",
 			args:        []string{"--env=FOO=bar", "--resume"},
 			wantYolobox: []string{"--env=FOO=bar"},
+			wantTool:    []string{"--resume"},
+		},
+		{
+			name:        "project filtering flags stay with yolobox",
+			args:        []string{"--exclude", ".env*", "--copy-as", ".env.sandbox:.env", "--resume"},
+			wantYolobox: []string{"--exclude", ".env*", "--copy-as", ".env.sandbox:.env"},
 			wantTool:    []string{"--resume"},
 		},
 		{

@@ -19,6 +19,8 @@ Flags go after the subcommand: `yolobox run --flag cmd` or `yolobox claude --fla
 | Flag | Description |
 |------|-------------|
 | `--mount <src:dst>` | Extra mount, repeatable |
+| `--exclude <glob>` | Hide matching project paths from the container, repeatable |
+| `--copy-as <src:dst>` | Mount a file at another project path inside the container, repeatable |
 | `--env <KEY=val>` | Extra environment variable, repeatable |
 | `--setup` | Run interactive setup before starting |
 | `--ssh-agent` | Forward SSH agent socket |
@@ -80,6 +82,30 @@ The network name is available inside the container as `$YOLOBOX_NETWORK`.
 
 ::: warning
 `--docker` cannot be combined with `--no-network`.
+:::
+
+## Project file filtering
+
+Use `--exclude` when you want the container to see an empty placeholder instead of the real project file or directory:
+
+```bash
+yolobox claude --readonly-project --exclude ".env*" --exclude "secrets/**"
+```
+
+Use `--copy-as` when you want to substitute one file for another project path inside the staged readonly project view:
+
+```bash
+yolobox claude --readonly-project --exclude ".env*" --copy-as ".env.sandbox:.env"
+```
+
+- exclude globs are relative to the project root
+- `**` matches recursively
+- `copy-as` destinations must stay inside the project and already exist as files
+- if both flags target the same path, `copy-as` wins
+- both flags currently require `--readonly-project`
+
+::: warning
+`--exclude` and `--copy-as` are currently supported on Docker and Podman only. Apple's `container` runtime does not support them yet.
 :::
 
 ## Derived image customization

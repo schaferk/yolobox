@@ -96,3 +96,5 @@ Also update [README.md](README.md) when user-facing behavior changes.
 - Avoid parallel Git commands in this repo while another Git operation is active. We have repeatedly hit misleading `.git/index.lock` failures from overlapping status/checkout/rebase calls.
 - GitHub Pages deployments that use a custom Actions workflow should set the custom domain in the repository Pages settings. A checked-in `CNAME` file is ignored in that flow and only adds confusion.
 - For the VitePress docs site, stop the live dev container before running `npm run docs:build`. The dev server and build both write `docs/.vitepress/dist`, and the shared bind mount causes flaky build conflicts if both are active.
+- Docker file bind mounts targeting a path inside an already bind-mounted project tree degrade into directories. Project file filtering must use a staged readonly project view rather than nested file mounts.
+- When yolobox itself runs inside another yolobox, temp mount sources must live under an existing host-visible bind mount like the project path. Inner-container `/tmp` is not visible to the outer Docker daemon.

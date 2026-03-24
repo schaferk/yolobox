@@ -56,6 +56,12 @@ yolobox claude --docker --git-config --gh-token
 yolobox run --no-network --readonly-project python3 untrusted_script.py
 ```
 
+### Hide secrets from the sandboxed view
+
+```bash
+yolobox claude --readonly-project --exclude ".env*" --exclude "secrets/**" --copy-as ".env.sandbox:.env"
+```
+
 ### Build with extra packages for one project
 
 ```bash

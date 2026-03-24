@@ -36,6 +36,9 @@ Place in your project root for project-specific settings:
 ```toml
 mounts = ["../shared-libs:/libs:ro"]
 env = ["DEBUG=1"]
+readonly_project = true
+exclude = [".env*", "secrets/**"]
+copy_as = [".env.sandbox:.env"]
 no_network = true
 shm_size = "2g"
 
@@ -46,6 +49,22 @@ packages = ["default-jdk", "maven"]
 ### Precedence
 
 CLI flags > project config > global config > defaults
+
+## Project file filtering
+
+Use project config when you want a repo to carry its own sandboxed view:
+
+```toml
+exclude = [".env*", "secrets/**"]
+copy_as = [".env.sandbox:.env"]
+```
+
+- `exclude` globs are relative to the project root and support `**`
+- `copy_as` sources can be relative or absolute host paths
+- `copy_as` destinations must stay inside the project and already exist as files
+- `copy_as` takes precedence if it targets the same path as `exclude`
+- both options currently require `readonly_project = true` or `--readonly-project`
+- Apple's `container` runtime does not support this feature yet
 
 ## Customization config
 
