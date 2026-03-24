@@ -71,6 +71,14 @@ async function generateLightLogo(darkLogoBuffer) {
   return sharp(data, { raw: info }).png().toBuffer()
 }
 
+async function trimLogo(buffer) {
+  return sharp(buffer)
+    .ensureAlpha()
+    .trim()
+    .png()
+    .toBuffer()
+}
+
 function socialCardBackgroundSvg() {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${SOCIAL_CARD.width}" height="${SOCIAL_CARD.height}" viewBox="0 0 ${SOCIAL_CARD.width} ${SOCIAL_CARD.height}">
@@ -131,9 +139,10 @@ async function writeFile(name, contents) {
 async function main() {
   await fs.mkdir(publicDir, { recursive: true })
 
-  const darkLogoBuffer = await fs.readFile(logoReferencePath)
-  const lightLogoBuffer = await generateLightLogo(darkLogoBuffer)
-  const socialCardBuffer = await generateSocialCard(darkLogoBuffer)
+  const darkLogoSourceBuffer = await fs.readFile(logoReferencePath)
+  const darkLogoBuffer = await trimLogo(darkLogoSourceBuffer)
+  const lightLogoBuffer = await trimLogo(await generateLightLogo(darkLogoSourceBuffer))
+  const socialCardBuffer = await generateSocialCard(darkLogoSourceBuffer)
 
   await writeFile('logo-dark.png', darkLogoBuffer)
   await writeFile('logo-dark.svg', imageSvg(darkLogoBuffer, 'The yolobox logo on a black background.'))
