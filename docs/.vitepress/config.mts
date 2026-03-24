@@ -19,7 +19,7 @@ export default defineConfig({
     ['meta', { property: 'og:image', content: 'https://yolobox.dev/social-card.png' }],
     ['meta', { property: 'og:image:width', content: '1200' }],
     ['meta', { property: 'og:image:height', content: '630' }],
-    ['meta', { property: 'og:image:alt', content: 'yolobox social card with the ASCII logo and tagline.' }],
+    ['meta', { property: 'og:image:alt', content: 'yolobox social card with the yolobox logo, tagline, and install command.' }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ['meta', { name: 'twitter:title', content: 'yolobox' }],
     ['meta', { name: 'twitter:description', content: 'Run AI coding agents in a sandboxed container. Your home directory stays home.' }],

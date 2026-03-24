@@ -3,11 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "brand:build": "node ./scripts/generate-brand-assets.mjs",
     "docs:dev": "vitepress dev",
-    "docs:build": "vitepress build",
+    "docs:build": "npm run brand:build && vitepress build",
     "docs:preview": "vitepress preview"
   },
   "devDependencies": {
+    "sharp": "^0.34.4",
     "vitepress": "^1.6.3"
   }
 }

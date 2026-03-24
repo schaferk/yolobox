@@ -1,35 +1,37 @@
 <template>
-  <pre class="ascii-logo" aria-hidden="true">██╗   ██╗ ██████╗ ██╗      ██████╗ ██████╗  ██████╗ ██╗  ██╗
-╚██╗ ██╔╝██╔═══██╗██║     ██╔═══██╗██╔══██╗██╔═══██╗╚██╗██╔╝
- ╚████╔╝ ██║   ██║██║     ██║   ██║██████╔╝██║   ██║ ╚███╔╝
-  ╚██╔╝  ██║   ██║██║     ██║   ██║██╔══██╗██║   ██║ ██╔██╗
-   ██║   ╚██████╔╝███████╗╚██████╔╝██████╔╝╚██████╔╝██╔╝ ██╗
-   ╚═╝    ╚═════╝ ╚══════╝ ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝</pre>
+  <img
+    class="ascii-logo"
+    :src="logoSrc"
+    alt="yolobox logo rendered from the block ASCII wordmark"
+    decoding="async"
+  >
 </template>
+
+<script setup>
+import { computed } from 'vue'
+import { useData } from 'vitepress'
+
+const { isDark } = useData()
+
+const logoSrc = computed(() => (
+  isDark.value ? '/logo-dark.svg' : '/logo-light.svg'
+))
+</script>
 
 <style scoped>
 .ascii-logo {
-  font-family: var(--vp-font-family-mono);
-  font-size: clamp(0.35rem, 1.15vw, 0.85rem);
-  line-height: 1.2;
-  color: var(--yolo-orange);
+  display: block;
+  width: min(100%, 58rem);
+  max-width: 100%;
+  height: auto;
   margin: 0 0 24px;
-  white-space: pre;
-  text-align: left;
-  display: inline-block;
-  text-shadow: 0 0 30px rgba(255, 107, 0, 0.25);
-  animation: ascii-glow 4s ease-in-out infinite alternate;
-  background: none;
-}
-
-@keyframes ascii-glow {
-  0% { text-shadow: 0 0 20px rgba(255, 107, 0, 0.2); }
-  100% { text-shadow: 0 0 40px rgba(255, 107, 0, 0.4); }
+  object-fit: contain;
 }
 
 @media (max-width: 700px) {
   .ascii-logo {
-    display: none;
+    width: 100%;
+    margin-bottom: 12px;
   }
 }
 </style>
