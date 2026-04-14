@@ -50,7 +50,7 @@ If you want to narrow the container's view of the project itself, use `--exclude
 Some flags deliberately widen the trust boundary:
 
 - `--docker` mounts the host Docker socket into the container
-- `--claude-config`, `--gemini-config`, and `--git-config` copy selected host config into the container
+- `--claude-config`, `--codex-config`, `--gemini-config`, and `--git-config` copy selected host config into the container
 - `--mount`, `--device`, and `--runtime-arg` expose extra host paths, devices, and low-level runtime capabilities
 
 These are useful, but they are explicit trust decisions.

@@ -99,7 +99,7 @@ Files copied if they exist on your host:
 | Codex | `~/.codex/AGENTS.md` | `/home/yolo/.codex/AGENTS.md` |
 | Copilot | `~/.copilot/agents/` | `/home/yolo/.copilot/agents/` |
 
-This copies instruction files, not full configs, credentials, settings, or history.
+This copies instruction files, not full configs, credentials, settings, or history. For full tool configs, use `--claude-config`, `--codex-config`, or `--gemini-config`.
 
 ## Auto-forwarded environment variables
 
@@ -119,5 +119,5 @@ On macOS, `gh` stores tokens in Keychain, not environment variables. Use `--gh-t
 ## Config sync warning
 
 ::: warning
-Setting `claude_config = true` or `gemini_config = true` in config copies your host config on every container start. That can overwrite changes made inside the container, including auth and history. Prefer `--claude-config` or `--gemini-config` for one-time syncs.
+Setting `claude_config = true`, `codex_config = true`, or `gemini_config = true` in config copies your host config on every container start. That can overwrite changes made inside the container, including auth and history. Prefer `--claude-config`, `--codex-config`, or `--gemini-config` for one-time syncs.
 :::

@@ -26,6 +26,7 @@ Flags go after the subcommand: `yolobox run --flag cmd` or `yolobox claude --fla
 | `--ssh-agent` | Forward SSH agent socket |
 | `--readonly-project` | Mount the project read-only and write outputs to `/output` |
 | `--claude-config` | Copy host `~/.claude` config into the container |
+| `--codex-config` | Copy host `~/.codex` config into the container |
 | `--gemini-config` | Copy host `~/.gemini` config into the container |
 | `--git-config` | Copy host `~/.gitconfig` into the container |
 | `--gh-token` | Forward GitHub CLI token from `gh auth token` |

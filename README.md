@@ -207,7 +207,7 @@ Priority: CLI flags > project config > global config > defaults.
 
 Each `runtime_args` entry is a single CLI argument. For flags that take a value, add them as separate entries so `--security-opt seccomp=unconfined` becomes `["--security-opt", "seccomp=unconfined"]`.
 
-> **Note:** Setting `claude_config = true` or `gemini_config = true` in your config will copy your host config on **every** container start, overwriting any changes made inside the container (including auth and history). Prefer using `--claude-config` or `--gemini-config` for one-time syncs.
+> **Note:** Setting `claude_config = true`, `codex_config = true`, or `gemini_config = true` in your config will copy your host config on **every** container start, overwriting any changes made inside the container (including auth and history). Prefer using `--claude-config`, `--codex-config`, or `--gemini-config` for one-time syncs.
 
 ### Project File Filtering
 
@@ -242,7 +242,7 @@ Files copied (if they exist on your host):
 | Codex | `~/.codex/AGENTS.md` | `/home/yolo/.codex/AGENTS.md` |
 | Copilot | `~/.copilot/agents/` | `/home/yolo/.copilot/agents/` |
 
-**Note:** This only copies global instruction files, not full configs (credentials, settings, history). For Claude's full config, use `--claude-config` instead.
+**Note:** This only copies global instruction files, not full configs (credentials, settings, history). For full tool configs, use `--claude-config`, `--codex-config`, or `--gemini-config`.
 
 You can also set `copy_agent_instructions = true` in your config file for persistent use.
 
@@ -279,6 +279,7 @@ These are automatically passed into the container if set:
 | `--scratch` | Start with a fresh home/cache (nothing persists) |
 | `--readonly-project` | Mount project read-only (outputs go to `/output`) |
 | `--claude-config` | Copy host `~/.claude` config into container |
+| `--codex-config` | Copy host `~/.codex` config into container |
 | `--gemini-config` | Copy host `~/.gemini` config into container |
 | `--git-config` | Copy host `~/.gitconfig` into container |
 | `--gh-token` | Forward GitHub CLI token (extracts from keychain via `gh auth token`) |

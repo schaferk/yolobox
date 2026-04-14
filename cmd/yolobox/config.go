@@ -29,6 +29,7 @@ type Config struct {
 	NoYolo                bool     `toml:"no_yolo"`
 	Scratch               bool     `toml:"scratch"`
 	ClaudeConfig          bool     `toml:"claude_config"`
+	CodexConfig           bool     `toml:"codex_config"`
 	GeminiConfig          bool     `toml:"gemini_config"`
 	GitConfig             bool     `toml:"git_config"`
 	GhToken               bool     `toml:"gh_token"`
@@ -159,6 +160,9 @@ func mergeConfig(dst *Config, src Config) {
 	if src.ClaudeConfig {
 		dst.ClaudeConfig = true
 	}
+	if src.CodexConfig {
+		dst.CodexConfig = true
+	}
 	if src.GeminiConfig {
 		dst.GeminiConfig = true
 	}
@@ -223,6 +227,7 @@ func printConfig(cfg Config) error {
 	fmt.Printf("%sno_yolo:%s %t\n", colorBold, colorReset, cfg.NoYolo)
 	fmt.Printf("%sscratch:%s %t\n", colorBold, colorReset, cfg.Scratch)
 	fmt.Printf("%sclaude_config:%s %t\n", colorBold, colorReset, cfg.ClaudeConfig)
+	fmt.Printf("%scodex_config:%s %t\n", colorBold, colorReset, cfg.CodexConfig)
 	fmt.Printf("%sgemini_config:%s %t\n", colorBold, colorReset, cfg.GeminiConfig)
 	fmt.Printf("%sgit_config:%s %t\n", colorBold, colorReset, cfg.GitConfig)
 	fmt.Printf("%sgh_token:%s %t\n", colorBold, colorReset, cfg.GhToken)

@@ -26,10 +26,11 @@ func TestMergeConfig(t *testing.T) {
 		Image:   "old-image",
 	}
 	src := Config{
-		Image:     "new-image",
-		SSHAgent:  true,
-		NoNetwork: true,
-		Scratch:   true,
+		Image:       "new-image",
+		SSHAgent:    true,
+		NoNetwork:   true,
+		Scratch:     true,
+		CodexConfig: true,
 	}
 
 	mergeConfig(&dst, src)
@@ -48,6 +49,9 @@ func TestMergeConfig(t *testing.T) {
 	}
 	if !dst.Scratch {
 		t.Error("expected Scratch to be true")
+	}
+	if !dst.CodexConfig {
+		t.Error("expected CodexConfig to be true")
 	}
 }
 
@@ -123,6 +127,30 @@ func TestLoadSetupDefaultsIgnoresProjectConfig(t *testing.T) {
 	}
 	if len(cfg.Customize.Packages) != 0 {
 		t.Fatalf("did not expect project customize packages in setup defaults, got %v", cfg.Customize.Packages)
+	}
+}
+
+func TestLoadConfigCodexConfig(t *testing.T) {
+	projectDir := t.TempDir()
+	configHome := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+	t.Setenv("HOME", t.TempDir())
+
+	globalConfigDir := filepath.Join(configHome, "yolobox")
+	if err := os.MkdirAll(globalConfigDir, 0755); err != nil {
+		t.Fatalf("failed to create global config dir: %v", err)
+	}
+	globalConfigPath := filepath.Join(globalConfigDir, "config.toml")
+	if err := os.WriteFile(globalConfigPath, []byte("codex_config = true\n"), 0644); err != nil {
+		t.Fatalf("failed to write global config: %v", err)
+	}
+
+	cfg, err := loadConfig(projectDir)
+	if err != nil {
+		t.Fatalf("loadConfig failed: %v", err)
+	}
+	if !cfg.CodexConfig {
+		t.Fatal("expected codex_config to load from config file")
 	}
 }
 
@@ -412,6 +440,34 @@ func TestBuildRunArgsReadonlyProject(t *testing.T) {
 	}
 	if !strings.Contains(argsStr, "yolobox-output:/output") {
 		t.Error("expected yolobox-output volume for ReadonlyProject")
+	}
+}
+
+func TestBuildRunArgsCodexConfig(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	codexConfigDir := filepath.Join(home, ".codex")
+	if err := os.MkdirAll(codexConfigDir, 0755); err != nil {
+		t.Fatalf("failed to create codex config dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(codexConfigDir, "config.toml"), []byte("model = \"gpt-5\"\n"), 0644); err != nil {
+		t.Fatalf("failed to write codex config file: %v", err)
+	}
+
+	cfg := Config{
+		Image:       "test-image",
+		CodexConfig: true,
+	}
+
+	args, _, err := buildRunArgs(cfg, "/test/project", []string{"bash"}, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	argsStr := strings.Join(args, " ")
+	if !strings.Contains(argsStr, codexConfigDir+":/host-codex/.codex:ro") {
+		t.Fatalf("expected codex config mount, got %s", argsStr)
 	}
 }
 
@@ -1337,6 +1393,12 @@ func TestSplitToolArgs(t *testing.T) {
 			wantTool:    []string{"--resume"},
 		},
 		{
+			name:        "codex config flag stays with yolobox",
+			args:        []string{"--codex-config", "--resume"},
+			wantYolobox: []string{"--codex-config"},
+			wantTool:    []string{"--resume"},
+		},
+		{
 			name:        "multiple yolobox flags then tool args",
 			args:        []string{"--no-network", "--scratch", "--resume", "abc123"},
 			wantYolobox: []string{"--no-network", "--scratch"},
@@ -1423,6 +1485,17 @@ func TestDetectTimezone(t *testing.T) {
 	if tz != "" && !strings.Contains(tz, "/") {
 		t.Errorf("expected IANA timezone with '/' or empty string, got %q", tz)
 	}
+}
+
+func TestParseFlagsCodexConfig(t *testing.T) {
+	cfg, rest, err := parseBaseFlags("run", []string{"--codex-config", "codex", "--version"}, t.TempDir())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !cfg.CodexConfig {
+		t.Fatal("expected CodexConfig to be true after parsing --codex-config")
+	}
+	expectSliceEqual(t, rest, []string{"codex", "--version"})
 }
 
 func TestBuildRunArgsTimezone(t *testing.T) {

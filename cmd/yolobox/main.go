@@ -245,6 +245,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  --scratch             Fresh environment, no persistent volumes")
 	fmt.Fprintln(os.Stderr, "  --readonly-project    Mount project directory read-only")
 	fmt.Fprintln(os.Stderr, "  --claude-config       Copy host Claude config to container")
+	fmt.Fprintln(os.Stderr, "  --codex-config        Copy host Codex config to container")
 	fmt.Fprintln(os.Stderr, "  --gemini-config       Copy host Gemini config to container")
 	fmt.Fprintln(os.Stderr, "  --git-config          Copy host git config to container")
 	fmt.Fprintln(os.Stderr, "  --gh-token            Forward GitHub CLI token (from gh auth token)")
@@ -304,6 +305,7 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 		noYolo                bool
 		scratch               bool
 		claudeConfig          bool
+		codexConfig           bool
 		geminiConfig          bool
 		gitConfig             bool
 		ghToken               bool
@@ -339,6 +341,7 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 	fs.BoolVar(&noYolo, "no-yolo", false, "disable AI CLIs YOLO mode")
 	fs.BoolVar(&scratch, "scratch", false, "fresh environment, no persistent volumes")
 	fs.BoolVar(&claudeConfig, "claude-config", false, "copy host Claude config to container")
+	fs.BoolVar(&codexConfig, "codex-config", false, "copy host Codex config to container")
 	fs.BoolVar(&geminiConfig, "gemini-config", false, "copy host Gemini config to container")
 	fs.BoolVar(&gitConfig, "git-config", false, "copy host git config to container")
 	fs.BoolVar(&ghToken, "gh-token", false, "forward GitHub CLI token (from gh auth token)")
@@ -400,6 +403,9 @@ func parseBaseFlags(name string, args []string, projectDir string) (Config, []st
 	}
 	if claudeConfig {
 		cfg.ClaudeConfig = true
+	}
+	if codexConfig {
+		cfg.CodexConfig = true
 	}
 	if geminiConfig {
 		cfg.GeminiConfig = true
@@ -907,7 +913,7 @@ func splitToolArgs(args []string) (yoloboxArgs, toolArgs []string) {
 		"runtime": true, "image": true, "network": true, "pod": true,
 		"ssh-agent": true, "readonly-project": true, "no-network": true,
 		"no-yolo": true, "scratch": true, "claude-config": true,
-		"gemini-config": true, "git-config": true, "gh-token": true,
+		"codex-config": true, "gemini-config": true, "git-config": true, "gh-token": true,
 		"copy-agent-instructions": true, "docker": true, "setup": true, "mount": true,
 		"exclude": true, "copy-as": true,
 		"env": true, "h": true, "help": true,
@@ -1169,6 +1175,28 @@ func buildRunArgs(cfg Config, projectDir string, command []string, interactive b
 				}
 			}
 			args = append(args, "-v", mountSrc+":/host-gemini/.gemini:ro")
+		}
+	}
+
+	// Mount Codex config from host to staging area (copied to /home/yolo by entrypoint)
+	if cfg.CodexConfig {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, nil, err
+		}
+		codexConfigDir := filepath.Join(home, ".codex")
+		if _, err := os.Stat(codexConfigDir); err == nil {
+			mountSrc := codexConfigDir
+			if dirContainsSymlinks(codexConfigDir) {
+				staged, err := stageDirResolvingSymlinks(codexConfigDir)
+				if err != nil {
+					warn("Failed to resolve symlinks in %s: %s", codexConfigDir, err)
+				} else {
+					mountSrc = staged
+					cleanupPaths = append(cleanupPaths, staged)
+				}
+			}
+			args = append(args, "-v", mountSrc+":/host-codex/.codex:ro")
 		}
 	}
 

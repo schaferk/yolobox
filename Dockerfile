@@ -191,7 +191,7 @@ RUN printf '%s\n' \
     chmod +x /usr/local/bin/yolobox-uid-fix.sh
 
 # Create entrypoint script
-RUN mkdir -p /host-claude /host-gemini /host-git /host-agent-instructions /host-files && \
+RUN mkdir -p /host-claude /host-codex /host-gemini /host-git /host-agent-instructions /host-files && \
     printf '%s\n' \
     '#!/bin/bash' \
     '' \
@@ -241,6 +241,14 @@ RUN mkdir -p /host-claude /host-gemini /host-git /host-agent-instructions /host-
     '    sudo rm -rf /home/yolo/.gemini' \
     '    sudo cp -a /host-gemini/.gemini /home/yolo/.gemini' \
     '    sudo chown -R yolo:yolo /home/yolo/.gemini' \
+    'fi' \
+    '' \
+    '# Copy Codex config from host staging area if present' \
+    'if [ -d /host-codex/.codex ]; then' \
+    '    echo -e "\033[33m→ Copying host Codex config to container\033[0m" >&2' \
+    '    sudo rm -rf /home/yolo/.codex' \
+    '    sudo cp -a /host-codex/.codex /home/yolo/.codex' \
+    '    sudo chown -R yolo:yolo /home/yolo/.codex' \
     'fi' \
     '' \
     '# Copy git config from host staging area if present' \
